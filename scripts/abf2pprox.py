@@ -18,7 +18,6 @@ from pathlib import Path
 from neo import AxonIO
 import nbank as nb
 import quantities as pq
-import quickspikes as qs
 import quickspikes.tools as qst
 from quickspikes.intracellular import SpikeFinder
 
@@ -96,6 +95,11 @@ if __name__ == "__main__":
         default=2,
         help="upsampling ratio for spike shape analysis (default %(default)d)",
     )
+    parser.add_argument(
+        "--compute-stats",
+        action="store_true",
+        help="if set, compute and store spike shape statistics"
+    )
     parser.add_argument("neuron", help="identifier for the neuron")
     parser.add_argument("epoch", help="index of the epoch to analyze", type=int)
     args = parser.parse_args()
@@ -151,9 +155,10 @@ if __name__ == "__main__":
             "index": sweep_idx,
             "offset": segment.t_start,
             "events": [],
-            "marks": defaultdict(list),
             "interval": [0.0 * pq.s, segment.t_stop - segment.t_start]
         }
+        if args.compute_stats:
+            trial["marks"] = defaultdict(list),
 
         # detect spikes
         # we set the threshold based on the amplitude of the first spike
@@ -185,9 +190,10 @@ if __name__ == "__main__":
         for time, spike in detector.extract_spikes(
             V, args.spike_amplitude_min, args.spike_upsample
         ):
-            # calculate statistics
-            # add to pprox
             trial["events"].append(time * sampling_period.rescale("s"))
+            if args.compute_stats:
+                for k, v in qst.spike_shape(spike, sampling_period).items():
+                    trial["marks"][k].append(v)
         pprox["pprox"].append(trial)
     
     # output to json
