@@ -11,16 +11,18 @@ step currents to check input and series resistance.
 """
 import datetime
 import logging
+import json
+from collections import defaultdict
 from pathlib import Path
-from neo import AxonIO
 
+from neo import AxonIO
 import nbank as nb
 import quantities as pq
 import quickspikes as qs
 import quickspikes.tools as qst
 from quickspikes.intracellular import SpikeFinder
 
-from core import setup_log
+from core import setup_log, json_serializable
 
 log = logging.getLogger()
 __version__ = "20220923"
@@ -116,6 +118,16 @@ if __name__ == "__main__":
     ifp = AxonIO(abf)
     block = ifp.read_block(lazy=True)
 
+    pprox = {
+        "$schema": "https://meliza.org/spec:2/pprox.json#",
+        "source": nb.full_url(args.neuron),
+        "epoch": args.epoch,
+        "abf_file": abf.stem,
+        "timestamp": block.rec_datetime,
+        "pprox": []
+    }
+    # TODO look up subject info from neurobank
+
     for sweep_idx, segment in enumerate(block.segments):
         log.debug("- sweep %d:", sweep_idx)
         sampling_rate = segment.analogsignals[0].sampling_rate.rescale("kHz")
@@ -135,6 +147,14 @@ if __name__ == "__main__":
             )
             parser.exit(-1)
 
+        trial = {
+            "index": sweep_idx,
+            "offset": segment.t_start,
+            "events": [],
+            "marks": defaultdict(list),
+            "interval": [0.0 * pq.s, segment.t_stop - segment.t_start]
+        }
+
         # detect spikes
         # we set the threshold based on the amplitude of the first spike
         n_rise = int(args.rise_ms * sampling_rate)
@@ -147,9 +167,11 @@ if __name__ == "__main__":
             )
         except TypeError:
             log.debug("  ✗ no spikes")
+            pprox["pprox"].append(trial)
             continue
         if V[peak] - base < args.first_spike_amplitude_min * pq.mV:
             log.debug("  ✗ first spike amplitude is too low")
+            pprox["pprox"].append(trial)
             continue
         log.debug(
             "  - first spike: time=%.1f ms, peak=%.1f mV, base=%.1f mV, takeoff=-%.2f ms",
@@ -158,9 +180,20 @@ if __name__ == "__main__":
             base,
             takeoff * sampling_period,
         )
+        trial.update(spike_base=base, spike_thresh=thresh)
+            
         for time, spike in detector.extract_spikes(
             V, args.spike_amplitude_min, args.spike_upsample
         ):
             # calculate statistics
             # add to pprox
-            pass
+            trial["events"].append(time * sampling_period.rescale("s"))
+        pprox["pprox"].append(trial)
+    
+    # output to json
+    short_name = args.neuron.split("-")[0]
+    output_file = args.output_dir / f"{short_name}_{args.epoch}.pprox"
+    with open(output_file, "wt") as fp:
+        json.dump(pprox, fp, default=json_serializable)
+    log.info("- wrote results to `%s`", output_file)
+    
