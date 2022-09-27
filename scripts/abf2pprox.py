@@ -25,7 +25,7 @@ import quantities as pq
 import quickspikes.tools as qst
 from quickspikes.intracellular import SpikeFinder, spike_shape
 
-from core import setup_log, json_serializable
+from core import setup_log, json_serializable, Interval
 
 log = logging.getLogger()
 __version__ = "20220923"
@@ -37,11 +37,12 @@ pFarad = pq.UnitQuantity("picofarad", pq.farad * 1e-9, symbol="pF")
 fFarad = pq.UnitQuantity("femtofarad", pq.farad * 1e-12, symbol="fF")
 junction_potential = pq.Quantity(11.6, "mV")  # measured at 32 C
 
-_units = {"voltage": "mV", "current": "pA", "temperature": "C"}
+_units = {"voltage": pq.mV, "current": pq.pA, "temperature": "C"}
 
 # some hard-coded intervals
 interval_padding = 2 * pq.ms
 steady_interval_depol = 300 * pq.ms
+steady_interval_hypol = 100 * pq.ms
 
 
 def with_units(unit: pq.UnitQuantity):
@@ -53,13 +54,15 @@ def first_index(fn, seq):
     return next((i for (i, x) in enumerate(seq) if fn(x)), None)
 
 
-def summarize_currents(I, step_start, step_len, sampling_period):
-    for start, length in zip(step_start, step_len):
-        end = start + length
-        yield dict(
-            interval=[start * sampling_period, end * sampling_period],
-            current=I[start:end].mean(),
-        )
+def series_resistance(current, voltage, idx, i_before, i_after):
+    """Calculates ΔV/ΔI around idx. The differences are calculated using the
+    mean of current and voltage between [idx - i_before, idx) and the spot value of current and
+    voltage at idx + i_after.
+    """
+    before = Interval(idx - i_before, idx, None)
+    dI = before.mean_of(current) - current[idx + i_after]
+    dV = before.mean_of(voltage) - voltage[idx + i_after]
+    return (dV * _units["voltage"]) / (dI * _units["current"])
 
 
 if __name__ == "__main__":
@@ -263,23 +266,53 @@ if __name__ == "__main__":
         # protocols used in this project, which consist of one depolarizing step
         # (which may be 0 amplitude) and two nested hyperpolarizing steps (e.g.
         # -50, -100, -50). Each of the intervals is treated differently.
+        steps = {"I": [], "V": []}
         # baseline: use the whole interval. Spikes are not filtered out.
         padding_samples = int(interval_padding * sampling_rate)
         step = first_index(lambda x: x == 0, step_val)
-        interval = slice(
-            step_start[step] + padding_samples, step_end[step] - padding_samples
+        interval = Interval(
+            step_start[step] + padding_samples, 
+            step_end[step] - padding_samples,
+            sampling_period
         )
-        trial["I_0"] = I[interval].mean()
-        trial["V_0"] = V[interval].mean()
+        steps["I"].append(interval.mean_of(I))
+        steps["V"].append(interval.mean_of(V))
         # depolarization: use the last part. voltage is nan if there are spikes
         step = first_index(lambda x: x > 0, step_val) or 0
-        interval = slice(step_end[step] - int(steady_interval_depol * sampling_rate),
-                         step_end[step] - padding_samples)
-        trial["I_stim"] = Ic[interval].mean()
-        trial["V_stim"] = V[interval].mean()
-        # hypol_step1 = first_index(lambda x: x < 0, step_val)
-        # hypol_step2 = hypol_step1 + 1
-
+        interval = Interval(
+            step_end[step] - int(steady_interval_depol * sampling_rate),
+            step_end[step] - padding_samples,
+            sampling_period
+        )
+        steps["I"].append(interval.mean_of(I))
+        steps["V"].append(interval.mean_of(V, trial["events"]))
+        if step > 0:
+            trial["stimulus"] = {
+                "I": steps["I"][-1], 
+                "interval": Interval(step_start[step], step_end[step], sampling_period).times 
+            }
+        # hyperpolarization
+        step = first_index(lambda x: x < 0, step_val)
+        interval = Interval(
+            step_end[step] - int(steady_interval_hypol * sampling_rate),
+            step_end[step] - padding_samples,
+            sampling_period
+        )
+        steps["I"].append(interval.mean_of(I))
+        steps["V"].append(interval.mean_of(V, trial["events"]))
+        Rs_1 = series_resistance(I, V, step_start[step], padding_samples, int(sampling_rate * pq.ms))
+        # hyperpolarization step 2
+        step = step + 1
+        interval = Interval(
+            step_end[step] - int(steady_interval_hypol * sampling_rate),
+            step_end[step] - padding_samples,
+            sampling_period
+        )
+        steps["I"].append(interval.mean_of(I))
+        steps["V"].append(interval.mean_of(V, trial["events"]))
+        Rs_2 = series_resistance(I, V, step_start[step], padding_samples, int(sampling_rate * pq.ms))
+        trial["steps"] = steps
+        trial["Rs"] = (Rs_1 + Rs_2).rescale(MOhm) / 2
         pprox["pprox"].append(trial)
 
     # output to json
