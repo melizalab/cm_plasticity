@@ -37,12 +37,12 @@ pFarad = pq.UnitQuantity("picofarad", pq.farad * 1e-9, symbol="pF")
 fFarad = pq.UnitQuantity("femtofarad", pq.farad * 1e-12, symbol="fF")
 junction_potential = pq.Quantity(11.6, "mV")  # measured at 32 C
 
-_units = {"voltage": pq.mV, "current": pq.pA, "temperature": "C"}
+_units = {"voltage": pq.mV, "current": pq.pA, "resistance": MOhm, "temperature": "C"}
 
 # some hard-coded intervals
 interval_padding = 2 * pq.ms
 steady_interval_depol = 300 * pq.ms
-steady_interval_hypol = 100 * pq.ms
+steady_interval_hypol = 150 * pq.ms
 
 
 def with_units(unit: pq.UnitQuantity):
@@ -56,8 +56,9 @@ def first_index(fn, seq):
 
 def series_resistance(current, voltage, idx, i_before, i_after):
     """Calculates ΔV/ΔI around idx. The differences are calculated using the
-    mean of current and voltage between [idx - i_before, idx) and the spot value of current and
-    voltage at idx + i_after.
+    mean of current and voltage between [idx - i_before, idx) and the spot value
+    of current and voltage at idx + i_after.
+
     """
     before = Interval(idx - i_before, idx, None)
     dI = before.mean_of(current) - current[idx + i_after]
@@ -205,6 +206,12 @@ if __name__ == "__main__":
                 .squeeze()
                 .magnitude
             )
+        except IndexError:
+            log.error(
+                "   - error: no protocol information - gapfree?",
+                args.command_channel,
+            )
+            parser.exit(-1)
         except ValueError:
             log.error(
                 "   - error: protocol channel %d is not in units of current",
@@ -245,14 +252,19 @@ if __name__ == "__main__":
         n_after = int(args.spike_analysis_window[1] * sampling_rate)
         detector = SpikeFinder(n_rise, n_before, n_after)
         first_spike = detector.calculate_threshold(
-                V, args.spike_thresh_rel, args.spike_thresh_min
+            V, args.spike_thresh_rel, args.spike_thresh_min
         )
         if first_spike is None:
             log.debug("  ✗ no spikes")
-        elif first_spike.peak_V - first_spike.takeoff_V < args.first_spike_amplitude_min * pq.mV:
+        elif (
+            first_spike.peak_V - first_spike.takeoff_V
+            < args.first_spike_amplitude_min * pq.mV
+        ):
             log.debug("  ✗ first spike amplitude is too low")
         else:
-            trial.update(spike_base=first_spike.takeoff_V, spike_thresh=detector.spike_thresh)
+            trial.update(
+                spike_base=first_spike.takeoff_V, spike_thresh=detector.spike_thresh
+            )
             for time, spike in detector.extract_spikes(
                 V, args.spike_amplitude_min, args.spike_upsample
             ):
@@ -271,9 +283,9 @@ if __name__ == "__main__":
         padding_samples = int(interval_padding * sampling_rate)
         step = first_index(lambda x: x == 0, step_val)
         interval = Interval(
-            step_start[step] + padding_samples, 
+            step_start[step] + padding_samples,
             step_end[step] - padding_samples,
-            sampling_period
+            sampling_period,
         )
         steps["I"].append(interval.mean_of(I))
         steps["V"].append(interval.mean_of(V))
@@ -282,37 +294,56 @@ if __name__ == "__main__":
         interval = Interval(
             step_end[step] - int(steady_interval_depol * sampling_rate),
             step_end[step] - padding_samples,
-            sampling_period
+            sampling_period,
         )
         steps["I"].append(interval.mean_of(I))
         steps["V"].append(interval.mean_of(V, trial["events"]))
         if step > 0:
             trial["stimulus"] = {
-                "I": steps["I"][-1], 
-                "interval": Interval(step_start[step], step_end[step], sampling_period).times 
+                "I": steps["I"][-1],
+                "interval": Interval(
+                    step_start[step], step_end[step], sampling_period
+                ).times,
             }
         # hyperpolarization
         step = first_index(lambda x: x < 0, step_val)
         interval = Interval(
             step_end[step] - int(steady_interval_hypol * sampling_rate),
             step_end[step] - padding_samples,
-            sampling_period
+            sampling_period,
         )
         steps["I"].append(interval.mean_of(I))
         steps["V"].append(interval.mean_of(V, trial["events"]))
-        Rs_1 = series_resistance(I, V, step_start[step], padding_samples, int(sampling_rate * pq.ms))
+        Rs_1 = series_resistance(
+            I, V, step_start[step], padding_samples, int(sampling_rate * pq.ms)
+        )
+        Rm_1 = (
+            (steps["V"][-1] - steps["V"][0])
+            / (steps["I"][-1] - steps["I"][0])
+            * _units["voltage"]
+            / _units["current"]
+        )
         # hyperpolarization step 2
         step = step + 1
         interval = Interval(
             step_end[step] - int(steady_interval_hypol * sampling_rate),
             step_end[step] - padding_samples,
-            sampling_period
+            sampling_period,
         )
         steps["I"].append(interval.mean_of(I))
         steps["V"].append(interval.mean_of(V, trial["events"]))
-        Rs_2 = series_resistance(I, V, step_start[step], padding_samples, int(sampling_rate * pq.ms))
+        Rs_2 = series_resistance(
+            I, V, step_start[step], padding_samples, int(sampling_rate * pq.ms)
+        )
+        Rm_2 = (
+            (steps["V"][-1] - steps["V"][-2])
+            / (steps["I"][-1] - steps["I"][-2])
+            * _units["voltage"]
+            / _units["current"]
+        )
         trial["steps"] = steps
-        trial["Rs"] = (Rs_1 + Rs_2).rescale(MOhm) / 2
+        trial["Rs"] = (Rs_1 + Rs_2).rescale(_units["resistance"]) / 2
+        trial["Rm"] = (Rm_1 + Rm_2).rescale(_units["resistance"]) / 2
         pprox["pprox"].append(trial)
 
     # output to json

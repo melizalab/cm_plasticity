@@ -51,6 +51,12 @@ def json_serializable(val):
     return str(val)
 
 
+@json_serializable.register(pq.UnitQuantity)
+def __js_quantity(val):
+    """Used for scalar quantities with units"""
+    return val.symbol
+
+
 @json_serializable.register(pq.Quantity)
 def __js_quantity(val):
     """Used for scalar quantities with units"""
