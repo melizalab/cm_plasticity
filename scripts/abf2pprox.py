@@ -22,12 +22,14 @@ from pathlib import Path
 import numpy as np
 from neo import AxonIO
 import nbank as nb
+import requests as rq
 import quantities as pq
 import quickspikes.tools as qst
 from quickspikes.intracellular import SpikeFinder, spike_shape, fit_exponentials
 
 from core import setup_log, json_serializable, Interval
 
+birddb_url = "https://gracula.psyc.virginia.edu/birds/api/animals/"
 log = logging.getLogger()
 __version__ = "20220923"
 
@@ -149,6 +151,7 @@ if __name__ == "__main__":
     log.info("- date: %s", datetime.datetime.now())
     log.info("- version: %s", __version__)
     log.info("- analyzing: %s/%s", args.neuron, args.epoch)
+    info = nb.describe(args.neuron)
     path = nb.get(args.neuron, local_only=True)
     if path is None:
         log.error("  - error: `%s` is not in neurobank registry", args.neuron)
@@ -172,9 +175,17 @@ if __name__ == "__main__":
         "epoch": args.epoch,
         "abf_file": abf.stem,
         "timestamp": block.rec_datetime,
+        "metadata": info["metadata"],
         "pprox": [],
     }
-    # TODO look up subject info from neurobank
+    try:
+        url = f"{birddb_url}{info['metadata']['bird']}/"
+        birb = rq.get(url).json()
+        #info["metadata"]["bird_name"] = birb["name"]
+        info["metadata"]["bird_sire"] = birb["sire"]
+        info["metadata"]["bird_dam"] = birb["dam"]
+    except (KeyError, rq.HTTPError):
+        pass
 
     hypol_I = []
     hypol_V = []
@@ -376,7 +387,7 @@ if __name__ == "__main__":
     # This Rm should not be used, because it reflects both the sag and the leak
     # current. It's only used to get Cm from the time constant.
     Rm = (dV / dI).rescale(_units["resistance"])
-    pprox["epoch_stats"] = {
+    pprox["stats"] = {
         "tau": tau,
         "Cm": (tau / Rm).rescale(_units["capacitance"]),
         "mse": err,
