@@ -311,7 +311,7 @@ if __name__ == "__main__":
             sampling_period,
         )
         steps["I"].append(interval.mean_of(I))
-        steps["V"].append(interval.mean_of(V))
+        steps["V"].append(interval.mean_of(V, trial["events"]))
         # depolarization: use the last part. voltage is nan if there are spikes
         step = first_index(lambda x: x > 0, step_val) or 0
         interval = Interval(
@@ -329,25 +329,30 @@ if __name__ == "__main__":
                 ).times,
             }
         # hyperpolarization
+        Rm = []
+        Rs = []
         step = first_index(lambda x: x < 0, step_val)
         interval = Interval(
             step_end[step] - steady_hypol_samples,
             step_end[step] - padding_samples,
             sampling_period,
         )
-        steps["I"].append(interval.mean_of(I))
-        steps["V"].append(interval.mean_of(V, trial["events"]))
-        hypol_I.append(I[step_start[step] : step_end[step]])
-        hypol_V.append(V[step_start[step] : step_end[step]])
-        Rs_1 = series_resistance(
+        Rs.append(series_resistance(
             I, V, step_start[step], padding_samples, int(sampling_rate * pq.ms)
-        )
-        Rm_1 = (
-            (steps["V"][-1] - steps["V"][0])
-            / (steps["I"][-1] - steps["I"][0])
-            * _units["voltage"]
-            / _units["current"]
-        )
+        ))
+        Vstep = interval.mean_of(V, trial["events"])
+        steps["I"].append(interval.mean_of(I))
+        steps["V"].append(Vstep)
+        if Vstep is not None:
+            hypol_I.append(I[step_start[step] : step_end[step]])
+            hypol_V.append(V[step_start[step] : step_end[step]])
+        try:
+            Rm.append(
+                (steps["V"][-1] - steps["V"][0])
+                / (steps["I"][-1] - steps["I"][0])
+            )
+        except TypeError:
+            pass
         # hyperpolarization step 2
         step = step + 1
         interval = Interval(
@@ -355,43 +360,54 @@ if __name__ == "__main__":
             step_end[step] - padding_samples,
             sampling_period,
         )
-        steps["I"].append(interval.mean_of(I))
-        steps["V"].append(interval.mean_of(V, trial["events"]))
-        Rs_2 = series_resistance(
+        Rs.append(series_resistance(
             I, V, step_start[step], padding_samples, int(sampling_rate * pq.ms)
-        )
-        Rm_2 = (
-            (steps["V"][-1] - steps["V"][-2])
-            / (steps["I"][-1] - steps["I"][-2])
-            * _units["voltage"]
-            / _units["current"]
-        )
+        ))
+        Vstep = interval.mean_of(V, trial["events"])
+        steps["I"].append(interval.mean_of(I))
+        steps["V"].append(Vstep)
+        if Vstep is not None:
+            hypol_I.append(I[step_start[step] : step_end[step]])
+            hypol_V.append(V[step_start[step] : step_end[step]])
+        try: 
+            Rm.append(
+                (steps["V"][-1] - steps["V"][-2])
+                / (steps["I"][-1] - steps["I"][-2])
+            )
+        except TypeError:
+            pass
         trial["steps"] = steps
-        trial["Rs"] = (Rs_1 + Rs_2).rescale(_units["resistance"]) / 2
-        trial["Rm"] = (Rm_1 + Rm_2).rescale(_units["resistance"]) / 2
+        trial["Rs"] = (np.mean(Rs) * _units["voltage"] / _units["current"]).rescale(_units["resistance"])
+        if len(Rm) > 0:
+            trial["Rm"] = (np.mean(Rm) * _units["voltage"] / _units["current"]).rescale(_units["resistance"])
+        else:
+            trial["Rm"] = None
         pprox["pprox"].append(trial)
 
     # calculate tau and Cm from the average of all sweeps
-    hI = np.mean(hypol_I, axis=0)
-    hV = np.mean(hypol_V, axis=0)
-    params, est = fit_exponentials(
-        hV, 2, 20, sampling_period.rescale(_units["time"]), axis=0
-    )
-    err = np.mean((hV - est) ** 2)
-    # use the faster component with positive amplitude
-    pos = params["amplitude"] > 0
-    idx = params["lifetime"][pos].argmin()
-    tau = params["lifetime"][pos][idx] * _units["time"]
-    dV = params["amplitude"][pos][idx] * _units["voltage"]
-    dI = (hI[0] - hI[-steady_hypol_samples:].mean()) * _units["current"]
-    # This Rm should not be used, because it reflects both the sag and the leak
-    # current. It's only used to get Cm from the time constant.
-    Rm = (dV / dI).rescale(_units["resistance"])
-    pprox["stats"] = {
-        "tau": tau,
-        "Cm": (tau / Rm).rescale(_units["capacitance"]),
-        "mse": err,
-    }
+    if len(hypol_V) > 0:
+        hI = np.mean(hypol_I, axis=0)
+        hV = np.mean(hypol_V, axis=0)
+        params, est = fit_exponentials(
+            hV, 2, 20, sampling_period.rescale(_units["time"]), axis=0
+        )
+        err = np.mean((hV - est) ** 2)
+        # use the faster component with positive amplitude
+        pos = params["amplitude"] > 0
+        idx = params["lifetime"][pos].argmin()
+        tau = params["lifetime"][pos][idx] * _units["time"]
+        dV = params["amplitude"][pos][idx] * _units["voltage"]
+        dI = (hI[0] - hI[-steady_hypol_samples:].mean()) * _units["current"]
+        # This Rm should not be used, because it reflects both the sag and the leak
+        # current. It's only used to get Cm from the time constant.
+        Rm = (dV / dI).rescale(_units["resistance"])
+        pprox["stats"] = {
+            "tau": tau,
+            "Cm": (tau / Rm).rescale(_units["capacitance"]),
+            "mse": err,
+        }
+    else:
+        pprox["stats"] = {"tau": None, "Cm": None, "mse": None}
 
     # output to json
     short_name = args.neuron.split("-")[0]
