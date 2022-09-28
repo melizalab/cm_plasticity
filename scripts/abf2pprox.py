@@ -19,11 +19,12 @@ import json
 from collections import defaultdict
 from pathlib import Path
 
+import numpy as np
 from neo import AxonIO
 import nbank as nb
 import quantities as pq
 import quickspikes.tools as qst
-from quickspikes.intracellular import SpikeFinder, spike_shape
+from quickspikes.intracellular import SpikeFinder, spike_shape, fit_exponentials
 
 from core import setup_log, json_serializable, Interval
 
@@ -33,11 +34,18 @@ __version__ = "20220923"
 kOhm = pq.UnitQuantity("kiloohm", pq.ohm * 1e3, symbol="kΩ")
 MOhm = pq.UnitQuantity("megaohm", pq.ohm * 1e6, symbol="MΩ")
 GOhm = pq.UnitQuantity("gigaohm", pq.ohm * 1e9, symbol="GΩ")
-pFarad = pq.UnitQuantity("picofarad", pq.farad * 1e-9, symbol="pF")
-fFarad = pq.UnitQuantity("femtofarad", pq.farad * 1e-12, symbol="fF")
+pFarad = pq.UnitQuantity("picofarad", pq.farad * 1e-12, symbol="pF")
+fFarad = pq.UnitQuantity("femtofarad", pq.farad * 1e-15, symbol="fF")
 junction_potential = pq.Quantity(11.6, "mV")  # measured at 32 C
 
-_units = {"voltage": pq.mV, "current": pq.pA, "resistance": MOhm, "temperature": "C"}
+_units = {
+    "voltage": pq.mV,
+    "current": pq.pA,
+    "resistance": MOhm,
+    "time": pq.ms,
+    "temperature": "C",
+    "capacitance": pFarad,
+}
 
 # some hard-coded intervals
 interval_padding = 2 * pq.ms
@@ -168,6 +176,9 @@ if __name__ == "__main__":
     }
     # TODO look up subject info from neurobank
 
+    hypol_I = []
+    hypol_V = []
+
     for sweep_idx, segment in enumerate(block.segments):
         log.debug("- sweep %d:", sweep_idx)
         sampling_rate = segment.analogsignals[0].sampling_rate.rescale("kHz")
@@ -281,6 +292,7 @@ if __name__ == "__main__":
         steps = {"I": [], "V": []}
         # baseline: use the whole interval. Spikes are not filtered out.
         padding_samples = int(interval_padding * sampling_rate)
+        steady_hypol_samples = int(steady_interval_hypol * sampling_rate)
         step = first_index(lambda x: x == 0, step_val)
         interval = Interval(
             step_start[step] + padding_samples,
@@ -308,12 +320,14 @@ if __name__ == "__main__":
         # hyperpolarization
         step = first_index(lambda x: x < 0, step_val)
         interval = Interval(
-            step_end[step] - int(steady_interval_hypol * sampling_rate),
+            step_end[step] - steady_hypol_samples,
             step_end[step] - padding_samples,
             sampling_period,
         )
         steps["I"].append(interval.mean_of(I))
         steps["V"].append(interval.mean_of(V, trial["events"]))
+        hypol_I.append(I[step_start[step] : step_end[step]])
+        hypol_V.append(V[step_start[step] : step_end[step]])
         Rs_1 = series_resistance(
             I, V, step_start[step], padding_samples, int(sampling_rate * pq.ms)
         )
@@ -326,7 +340,7 @@ if __name__ == "__main__":
         # hyperpolarization step 2
         step = step + 1
         interval = Interval(
-            step_end[step] - int(steady_interval_hypol * sampling_rate),
+            step_end[step] - steady_hypol_samples,
             step_end[step] - padding_samples,
             sampling_period,
         )
@@ -345,6 +359,28 @@ if __name__ == "__main__":
         trial["Rs"] = (Rs_1 + Rs_2).rescale(_units["resistance"]) / 2
         trial["Rm"] = (Rm_1 + Rm_2).rescale(_units["resistance"]) / 2
         pprox["pprox"].append(trial)
+
+    # calculate tau and Cm from the average of all sweeps
+    hI = np.mean(hypol_I, axis=0)
+    hV = np.mean(hypol_V, axis=0)
+    params, est = fit_exponentials(
+        hV, 2, 20, sampling_period.rescale(_units["time"]), axis=0
+    )
+    err = np.mean((hV - est) ** 2)
+    # use the faster component with positive amplitude
+    pos = params["amplitude"] > 0
+    idx = params["lifetime"][pos].argmin()
+    tau = params["lifetime"][pos][idx] * _units["time"]
+    dV = params["amplitude"][pos][idx] * _units["voltage"]
+    dI = (hI[0] - hI[-steady_hypol_samples:].mean()) * _units["current"]
+    # This Rm should not be used, because it reflects both the sag and the leak
+    # current. It's only used to get Cm from the time constant.
+    Rm = (dV / dI).rescale(_units["resistance"])
+    pprox["epoch_stats"] = {
+        "tau": tau,
+        "Cm": (tau / Rm).rescale(_units["capacitance"]),
+        "mse": err,
+    }
 
     # output to json
     short_name = args.neuron.split("-")[0]
