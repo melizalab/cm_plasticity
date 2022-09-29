@@ -40,8 +40,11 @@ class Interval:
 
     @property
     def times(self) -> Tuple[float, float]:
-        return (self.start_index * self.sampling_period, self.end_index * self.sampling_period)
-                
+        return (
+            self.start_index * self.sampling_period,
+            self.end_index * self.sampling_period,
+        )
+
     def contains(self, events: Iterable[float]) -> bool:
         start, end = self.times
         return any((ev >= start and ev < end) for ev in events)

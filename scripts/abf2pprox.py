@@ -31,7 +31,7 @@ from core import with_units, first_index, setup_log, json_serializable, Interval
 
 birddb_url = "https://gracula.psyc.virginia.edu/birds/api/animals/"
 log = logging.getLogger()
-__version__ = "20220923"
+__version__ = "20220928"
 
 kOhm = pq.UnitQuantity("kiloohm", pq.ohm * 1e3, symbol="kΩ")
 MOhm = pq.UnitQuantity("megaohm", pq.ohm * 1e6, symbol="MΩ")
@@ -68,13 +68,14 @@ def series_resistance(current, voltage, idx, i_before, i_after):
 
 
 def time_constant(current: list[np.ndarray], voltage: list[np.ndarray]):
-    """ Calculate tau and Cm from the average of hyperpolarization steps
+    """Calculate tau and Cm from the average of hyperpolarization steps
 
     current: list of current steps
     voltage: list of voltage responses
 
     """
     from quickspikes.intracellular import fit_exponentials
+
     log.debug("- calculating time constant and capacitance")
     stats = {"tau": None, "Cm": None, "mse": None}
     if len(current) == 0 or len(voltage) == 0:
@@ -211,7 +212,7 @@ if __name__ == "__main__":
     try:
         url = f"{birddb_url}{info['metadata']['bird']}/"
         birb = rq.get(url).json()
-        #info["metadata"]["bird_name"] = birb["name"]
+        # info["metadata"]["bird_name"] = birb["name"]
         info["metadata"]["bird_sire"] = birb["sire"]
         info["metadata"]["bird_dam"] = birb["dam"]
     except (KeyError, rq.HTTPError):
@@ -317,8 +318,9 @@ if __name__ == "__main__":
             trial["first_spike"] = dict(
                 base=first_spike.takeoff_V,
                 thresh=detector.spike_thresh,
-                width=(first_spike.half_rise_t + first_spike.half_decay_t) * sampling_period,
-                trough_t=first_spike.trough_t * sampling_period
+                width=(first_spike.half_rise_t + first_spike.half_decay_t)
+                * sampling_period,
+                trough_t=first_spike.trough_t * sampling_period,
             )
             for time, spike in detector.extract_spikes(
                 V, args.spike_amplitude_min, args.spike_upsample
@@ -358,7 +360,9 @@ if __name__ == "__main__":
             trial["stimulus"] = {
                 "I": steps["I"][-1],
                 "interval": Interval(
-                    step_start[step], step_end[step], sampling_period.rescale("s"),
+                    step_start[step],
+                    step_end[step],
+                    sampling_period.rescale("s"),
                 ).times,
             }
         # hyperpolarization
@@ -370,9 +374,11 @@ if __name__ == "__main__":
             step_end[step] - padding_samples,
             sampling_period,
         )
-        Rs.append(series_resistance(
-            I, V, step_start[step], padding_samples, int(sampling_rate * pq.ms)
-        ))
+        Rs.append(
+            series_resistance(
+                I, V, step_start[step], padding_samples, int(sampling_rate * pq.ms)
+            )
+        )
         Vstep = interval.mean_of(V, trial["events"])
         steps["I"].append(interval.mean_of(I))
         steps["V"].append(Vstep)
@@ -381,8 +387,7 @@ if __name__ == "__main__":
             hypol_V.append(V[step_start[step] : step_end[step]])
         try:
             Rm.append(
-                (steps["V"][-1] - steps["V"][0])
-                / (steps["I"][-1] - steps["I"][0])
+                (steps["V"][-1] - steps["V"][0]) / (steps["I"][-1] - steps["I"][0])
             )
         except TypeError:
             pass
@@ -393,9 +398,11 @@ if __name__ == "__main__":
             step_end[step] - padding_samples,
             sampling_period,
         )
-        Rs.append(series_resistance(
-            I, V, step_start[step], padding_samples, int(sampling_rate * pq.ms)
-        ))
+        Rs.append(
+            series_resistance(
+                I, V, step_start[step], padding_samples, int(sampling_rate * pq.ms)
+            )
+        )
         Vstep = interval.mean_of(V, trial["events"])
         steps["I"].append(interval.mean_of(I))
         steps["V"].append(Vstep)
@@ -404,15 +411,18 @@ if __name__ == "__main__":
             hypol_V.append(V[step_start[step] : step_end[step]])
         try:
             Rm.append(
-                (steps["V"][-1] - steps["V"][-2])
-                / (steps["I"][-1] - steps["I"][-2])
+                (steps["V"][-1] - steps["V"][-2]) / (steps["I"][-1] - steps["I"][-2])
             )
         except TypeError:
             pass
         trial["steps"] = steps
-        trial["Rs"] = (np.mean(Rs) * _units["voltage"] / _units["current"]).rescale(_units["resistance"])
+        trial["Rs"] = (np.mean(Rs) * _units["voltage"] / _units["current"]).rescale(
+            _units["resistance"]
+        )
         if len(Rm) > 0:
-            trial["Rm"] = (np.mean(Rm) * _units["voltage"] / _units["current"]).rescale(_units["resistance"])
+            trial["Rm"] = (np.mean(Rm) * _units["voltage"] / _units["current"]).rescale(
+                _units["resistance"]
+            )
         else:
             trial["Rm"] = None
         pprox["pprox"].append(trial)
