@@ -67,7 +67,9 @@ def series_resistance(current, voltage, idx, i_before, i_after):
     return (dV * _units["voltage"]) / (dI * _units["current"])
 
 
-def time_constant(current: list[np.ndarray], voltage: list[np.ndarray], decay_thresh: float=0.99):
+def time_constant(
+    current: list[np.ndarray], voltage: list[np.ndarray], decay_thresh: float = 0.99
+):
     """Calculate tau and Cm from the average of hyperpolarization steps
 
     current: list of current steps
@@ -359,10 +361,10 @@ if __name__ == "__main__":
         trial["stimulus"] = {"I": steps["I"][-1]}
         if step > 0:
             trial["stimulus"]["interval"] = Interval(
-                    step_start[step],
-                    step_end[step],
-                    sampling_period.rescale("s"),
-                ).times
+                step_start[step],
+                step_end[step],
+                sampling_period.rescale("s"),
+            ).times
         # hyperpolarization
         Rm = []
         Rs = []
@@ -418,8 +420,11 @@ if __name__ == "__main__":
             trial["Rm"] = (np.mean(Rm) * _units["voltage"] / _units["current"]).rescale(
                 _units["resistance"]
             )
-        else:
-            trial["Rm"] = None
+            # resting potential: V = V_0 - I_0 * Rm
+            trial["Vm"] = (
+                steps["V"][0] * _units["voltage"]
+                - steps["I"][0] * _units["current"] * trial["Rm"]
+            )
         pprox["pprox"].append(trial)
 
     pprox["stats"] = time_constant(hypol_I, hypol_V)

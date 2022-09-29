@@ -26,7 +26,9 @@ def load_epoch(path):
             ["cell", "epoch", "bird", "sire", ["stats", "tau"], ["stats", "Cm"]],
         )
         return (
-            epoch.rename(columns={"index": "sweep", "stats.tau": "tau", "stats.Cm": "Cm"})
+            epoch.rename(
+                columns={"index": "sweep", "stats.tau": "tau", "stats.Cm": "Cm"}
+            )
             .set_index(["cell", "epoch", "sweep"])
             .drop(columns=["offset", "interval"])
         )
@@ -48,8 +50,25 @@ def sweep_firing_stats(sweep):
     except TypeError:
         rate = duration = np.nan
     return pd.Series(
-        [sweep["stimulus.I"], rate, duration, sweep.Rs, sweep.Rm, sweep.temperature],
-        index=["current", "firing_rate", "firing_duration", "Rs", "Rm", "temperature"],
+        {
+            "current": sweep["stimulus.I"],
+            "firing_rate": rate,
+            "firing_duration": duration,
+            "Rs": sweep.Rs,
+            "Rm": sweep.Rm,
+            "Vm": sweep.Vm,
+            "temperature": sweep.temperature,
+        }
+    )
+
+
+def sweep_iv_stats(sweep):
+    nsteps = len(sweep["steps.I"])
+    return pd.Series(
+        np.concatenate([sweep["steps.I"], sweep["steps.V"]]),
+        index=pd.MultiIndex.from_product(
+            [["current", "voltage"], range(nsteps)], names=["value", "step"]
+        ),
     )
 
 
@@ -62,26 +81,17 @@ def epoch_firing_stats(sweeps):
     # f-I slope: average of the slopes (simpler and more stable than linear regression)
     slope = np.mean(np.diff(df.firing_rate) / np.diff(df.current))
     return pd.Series(
-        [
-            sweeps.firing_duration.max(),
-            sweeps.firing_duration.mean(),
-            sweeps.firing_rate.max(),
-            I_0,
-            slope,
-            sweeps.Rs.mean(),
-            sweeps.Rm.mean(),
-            sweeps.temperature.mean(),
-        ],
-        index=[
-            "duration_max",
-            "duration_mean",
-            "rate_max",
-            "rheobase",
-            "fI_slope",
-            "Rs",
-            "Rm",
-            "T",
-        ],
+        {
+            "duration_max": sweeps.firing_duration.max(),
+            "duration_mean": sweeps.firing_duration.mean(),
+            "rate_max": sweeps.firing_rate.max(),
+            "rheobase": I_0,
+            "slope": slope,
+            "Rs": sweeps.Rs.mean(),
+            "Rm": sweeps.Rm.mean(),
+            "Vm": sweeps.Vm.mean(),
+            "temperature": sweeps.temperature.mean(),
+        }
     )
 
 
@@ -107,7 +117,7 @@ if __name__ == "__main__":
         .set_index("cell")
     )
     epochs = (
-        sweeps.reset_index()[["cell","epoch","tau","Cm"]]
+        sweeps.reset_index()[["cell", "epoch", "tau", "Cm"]]
         .drop_duplicates()
         .set_index(["cell", "epoch"])
     )
@@ -115,9 +125,6 @@ if __name__ == "__main__":
     sweep_stats = sweeps.apply(sweep_firing_stats, axis=1)
     log.info("- computing epoch-level statistics")
     epoch_stats = (
-        sweep_stats
-        .groupby(["cell", "epoch"])
-        .apply(epoch_firing_stats)
-        .join(epochs)
+        sweep_stats.groupby(["cell", "epoch"]).apply(epoch_firing_stats).join(epochs)
     )
     print(epoch_stats)
