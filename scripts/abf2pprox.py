@@ -67,14 +67,15 @@ def series_resistance(current, voltage, idx, i_before, i_after):
     return (dV * _units["voltage"]) / (dI * _units["current"])
 
 
-def time_constant(current: list[np.ndarray], voltage: list[np.ndarray]):
+def time_constant(current: list[np.ndarray], voltage: list[np.ndarray], decay_thresh: float=0.99):
     """Calculate tau and Cm from the average of hyperpolarization steps
 
     current: list of current steps
     voltage: list of voltage responses
+    decay_thresh: fit the decay up to this fraction of the trough
 
     """
-    from quickspikes.intracellular import fit_exponentials
+    from chebyfit import fit_exponentials
 
     log.debug("- calculating time constant and capacitance")
     stats = {"tau": None, "Cm": None, "mse": None}
@@ -83,22 +84,20 @@ def time_constant(current: list[np.ndarray], voltage: list[np.ndarray]):
         return stats
     hI = np.mean(current, axis=0)
     hV = np.mean(voltage, axis=0)
+    i_min = hV.argmin()
+    thresh = hV[0] - (hV[0] - hV[i_min]) * decay_thresh
+    i_thresh = first_index(lambda x: x < thresh, hV[:i_min])
     params, est = fit_exponentials(
-        hV, 2, 20, sampling_period.rescale(_units["time"]), axis=0
+        hV[:i_thresh], 1, deltat=sampling_period.rescale(_units["time"]), axis=0
     )
-    err = np.mean((hV - est) ** 2)
-    # use the faster component with positive amplitude
-    pos = (params["amplitude"] > 0) & (params["lifetime"] > 0)
-    try:
-        idx = params["lifetime"][pos].argmin()
-    except ValueError:
+    err = np.mean((hV[:i_thresh] - est) ** 2)
+    if params[0]["amplitude"] <= 0:
         log.debug("   - unable to fit double exponential")
         return stats
-    tau = params["lifetime"][pos][idx] * _units["time"]
-    dV = params["amplitude"][pos][idx] * _units["voltage"]
-    dI = (hI[0] - hI[-steady_hypol_samples:].mean()) * _units["current"]
-    # This Rm should not be used, because it reflects both the sag and the leak
-    # current. It's only used to get Cm from the time constant.
+    tau = params[0]["rate"] * _units["time"]
+    dV = params[0]["amplitude"] * _units["voltage"]
+    dI = (hI[0] - hI[i_min]) * _units["current"]
+    # use the faster component with positive amplitude
     Rm = (dV / dI).rescale(_units["resistance"])
     return {
         "tau": tau,
@@ -406,9 +405,6 @@ if __name__ == "__main__":
         Vstep = interval.mean_of(V, trial["events"])
         steps["I"].append(interval.mean_of(I))
         steps["V"].append(Vstep)
-        if Vstep is not None:
-            hypol_I.append(I[step_start[step] : step_end[step]])
-            hypol_V.append(V[step_start[step] : step_end[step]])
         try:
             Rm.append(
                 (steps["V"][-1] - steps["V"][-2]) / (steps["I"][-1] - steps["I"][-2])
