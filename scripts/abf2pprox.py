@@ -355,7 +355,7 @@ if __name__ == "__main__":
             trial["stimulus"] = {
                 "I": steps["I"][-1],
                 "interval": Interval(
-                    step_start[step], step_end[step], sampling_period
+                    step_start[step], step_end[step], sampling_period.rescale("s"),
                 ).times,
             }
         # hyperpolarization
