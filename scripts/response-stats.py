@@ -46,7 +46,7 @@ def sweep_firing_stats(sweep):
                 sweep["first_spike.width"] + sweep["first_spike.trough_t"]
             ) / 1000.0
         else:
-            duration = sweep.events[-1] - sweep.events[0]
+            duration = spikes[-1] - spikes[0]
     except TypeError:
         rate = duration = np.nan
     return pd.Series(
