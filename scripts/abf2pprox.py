@@ -199,28 +199,30 @@ if __name__ == "__main__":
     block = ifp.read_block(lazy=True)
     protocols = ifp.read_protocol()
 
+    short_name = args.neuron.split("-")[0]
     pprox = {
         "$schema": "https://meliza.org/spec:2/pprox.json#",
-        "source": nb.full_url(args.neuron),
-        "units": _units,
+        "cell": short_name,
         "epoch": args.epoch,
+        "source": nb.full_url(args.neuron),
         "abf_file": abf.stem,
         "timestamp": block.rec_datetime,
-        "metadata": info["metadata"],
-        "pprox": [],
+        "units": _units,
     }
     try:
         url = f"{birddb_url}{info['metadata']['bird']}/"
         birb = rq.get(url).json()
-        # info["metadata"]["bird_name"] = birb["name"]
-        info["metadata"]["bird_sire"] = birb["sire"]
-        info["metadata"]["bird_dam"] = birb["dam"]
+        info["metadata"]["sire"] = birb["sire"]
+        info["metadata"]["dam"] = birb["dam"]
     except (KeyError, rq.HTTPError):
         pass
+    else:
+        pprox.update(**info["metadata"])
 
     hypol_I = []
     hypol_V = []
 
+    pprox["pprox"] = []
     for sweep_idx, segment in enumerate(block.segments):
         log.debug("- sweep %d:", sweep_idx)
         sampling_rate = segment.analogsignals[0].sampling_rate.rescale("kHz")
@@ -356,15 +358,13 @@ if __name__ == "__main__":
         )
         steps["I"].append(interval.mean_of(I))
         steps["V"].append(interval.mean_of(V, trial["events"]))
+        trial["stimulus"] = {"I": steps["I"][-1]}
         if step > 0:
-            trial["stimulus"] = {
-                "I": steps["I"][-1],
-                "interval": Interval(
+            trial["stimulus"]["interval"] = Interval(
                     step_start[step],
                     step_end[step],
                     sampling_period.rescale("s"),
-                ).times,
-            }
+                ).times
         # hyperpolarization
         Rm = []
         Rs = []
@@ -429,7 +429,6 @@ if __name__ == "__main__":
 
     pprox["stats"] = time_constant(hypol_I, hypol_V)
     # output to json
-    short_name = args.neuron.split("-")[0]
     output_file = args.output_dir / f"{short_name}_{args.epoch}.pprox"
     with open(output_file, "wt") as fp:
         json.dump(pprox, fp, default=json_serializable)
