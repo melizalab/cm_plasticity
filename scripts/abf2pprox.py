@@ -228,8 +228,7 @@ if __name__ == "__main__":
         sampling_period = segment.analogsignals[0].sampling_period.rescale("ms")
         try:
             V = (
-                segment.analogsignals[0]
-                .load()
+                (segment.analogsignals[0].load() - junction_potential)
                 .rescale(_units["voltage"])
                 .squeeze()
                 .magnitude
