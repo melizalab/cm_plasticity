@@ -63,6 +63,7 @@ def sweep_firing_stats(sweep):
 
 
 def sweep_iv_stats(sweep):
+    """ Extract IV data from sweeps """
     nsteps = len(sweep["steps.I"])
     return pd.Series(
         np.concatenate([sweep["steps.I"], sweep["steps.V"]]),
@@ -73,13 +74,19 @@ def sweep_iv_stats(sweep):
 
 
 def epoch_firing_stats(sweeps):
+    """ Compute firing stats by epoch """
     # find sweeps with spikes
     (idx,) = (sweeps.firing_rate > 0).to_numpy().nonzero()
-    df = sweeps.iloc[idx[0] - 1 :]
-    # rheobase: midpoint between current levels that evoke firing
-    I_0 = (df.current[1] + df.current[0]) / 2
-    # f-I slope: average of the slopes (simpler and more stable than linear regression)
-    slope = np.mean(np.diff(df.firing_rate) / np.diff(df.current))
+    # rheobase is undefined if there are no spikes
+    if len(idx) == 0:
+        I_0 = np.nan
+        slope = 0
+    else:
+        df = sweeps.iloc[idx[0] - 1 :]
+        # rheobase: midpoint between current levels that evoke firing
+        I_0 = (df.current[1] + df.current[0]) / 2
+        # f-I slope: average of the slopes (simpler and more stable than linear regression)
+        slope = np.mean(np.diff(df.firing_rate) / np.diff(df.current))
     return pd.Series(
         {
             "duration_max": sweeps.firing_duration.max(),
@@ -95,12 +102,23 @@ def epoch_firing_stats(sweeps):
     )
 
 
+def compare_epochs(cell):
+    """ Compare all the epochs within a cell and mark ones that may need to be excluded """
+    pass
+
+
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--debug", help="show verbose log messages", action="store_true"
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default="build",
+        help="directory where output files should be stored"
     )
     parser.add_argument(
         "epochs", type=Path, nargs="+", help="epoch pprox files to process"
@@ -110,6 +128,7 @@ if __name__ == "__main__":
     log.info("- date: %s", datetime.datetime.now())
     log.info("- version: %s", __version__)
 
+    log.info("- loading pprox files")
     sweeps = pd.concat([load_epoch(path) for path in args.epochs])
     cells = (
         sweeps.reset_index()[["cell", "bird", "sire"]]
@@ -123,8 +142,14 @@ if __name__ == "__main__":
     )
     log.info("- computing sweep-level statistics")
     sweep_stats = sweeps.apply(sweep_firing_stats, axis=1)
+    log.info("- computing I-V functions")
+    iv_stats = sweeps.apply(sweep_iv_stats, axis=1).stack("step")
     log.info("- computing epoch-level statistics")
     epoch_stats = (
         sweep_stats.groupby(["cell", "epoch"]).apply(epoch_firing_stats).join(epochs)
     )
-    print(epoch_stats)
+    out = args.output_dir / "epoch_stats.csv"
+    epoch_stats.to_csv(out)
+    log.info("  - wrote epoch stats to '%s'", out)
+    log.info("- checking for bad epochs")
+    

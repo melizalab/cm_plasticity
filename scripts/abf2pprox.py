@@ -68,12 +68,17 @@ def series_resistance(current, voltage, idx, i_before, i_after):
 
 
 def time_constant(
-    current: list[np.ndarray], voltage: list[np.ndarray], decay_thresh: float = 0.99
+    current: list[np.ndarray],
+    voltage: list[np.ndarray],
+    dt: float,
+    decay_thresh: float = 0.99,
+    max_err: float = 0.05,
 ):
     """Calculate tau and Cm from the average of hyperpolarization steps
 
     current: list of current steps
     voltage: list of voltage responses
+    dt: sampling period (used to convert time constants to appropriate units)
     decay_thresh: fit the decay up to this fraction of the trough
 
     """
@@ -89,10 +94,7 @@ def time_constant(
     i_min = hV.argmin()
     thresh = hV[0] - (hV[0] - hV[i_min]) * decay_thresh
     i_thresh = first_index(lambda x: x < thresh, hV[:i_min])
-    params, est = fit_exponentials(
-        hV[:i_thresh], 1, deltat=sampling_period.rescale(_units["time"]), axis=0
-    )
-    err = np.mean((hV[:i_thresh] - est) ** 2)
+    params, est = fit_exponentials(hV[:i_thresh], 1, deltat=dt, axis=0)
     if params[0]["amplitude"] <= 0:
         log.debug("   - unable to fit double exponential")
         return stats
@@ -101,6 +103,12 @@ def time_constant(
     dI = (hI[0] - hI[i_min]) * _units["current"]
     # use the faster component with positive amplitude
     Rm = (dV / dI).rescale(_units["resistance"])
+    # error is calculated for first tau/2 or 25 ms, whichever is less
+    idx = int(min(25, tau / 2) / sampling_period)
+    err = np.sqrt(((hV[:idx] - est[:idx]) ** 2).mean()) / dV
+    if err > max_err:
+        log.debug("- fit error exceeds %.1f of voltage difference, excluding")
+        return stats
     return {
         "tau": tau,
         "Cm": (tau / Rm).rescale(_units["capacitance"]),
@@ -421,13 +429,16 @@ if __name__ == "__main__":
                 _units["resistance"]
             )
             # resting potential: V = V_0 - I_0 * Rm
-            trial["Vm"] = (
-                steps["V"][0] * _units["voltage"]
-                - steps["I"][0] * _units["current"] * trial["Rm"]
-            )
+            if steps["V"][0] is not None:
+                trial["Vm"] = (
+                    steps["V"][0] * _units["voltage"]
+                    - steps["I"][0] * _units["current"] * trial["Rm"]
+                )
         pprox["pprox"].append(trial)
 
-    pprox["stats"] = time_constant(hypol_I, hypol_V)
+    pprox["stats"] = time_constant(
+        hypol_I, hypol_V, dt=sampling_period.rescale(_units["time"])
+    )
     # output to json
     output_file = args.output_dir / f"{short_name}_{args.epoch}.pprox"
     with open(output_file, "wt") as fp:
