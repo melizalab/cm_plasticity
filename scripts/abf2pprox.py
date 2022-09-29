@@ -25,9 +25,9 @@ import nbank as nb
 import requests as rq
 import quantities as pq
 import quickspikes.tools as qst
-from quickspikes.intracellular import SpikeFinder, spike_shape, fit_exponentials
+from quickspikes.intracellular import SpikeFinder, spike_shape
 
-from core import setup_log, json_serializable, Interval
+from core import with_units, first_index, setup_log, json_serializable, Interval
 
 birddb_url = "https://gracula.psyc.virginia.edu/birds/api/animals/"
 log = logging.getLogger()
@@ -55,15 +55,6 @@ steady_interval_depol = 300 * pq.ms
 steady_interval_hypol = 150 * pq.ms
 
 
-def with_units(unit: pq.UnitQuantity):
-    return lambda x: x * unit
-
-
-def first_index(fn, seq):
-    """Returns the index of the first value in seq where fn(x) is True"""
-    return next((i for (i, x) in enumerate(seq) if fn(x)), None)
-
-
 def series_resistance(current, voltage, idx, i_before, i_after):
     """Calculates ΔV/ΔI around idx. The differences are calculated using the
     mean of current and voltage between [idx - i_before, idx) and the spot value
@@ -74,6 +65,45 @@ def series_resistance(current, voltage, idx, i_before, i_after):
     dI = before.mean_of(current) - current[idx + i_after]
     dV = before.mean_of(voltage) - voltage[idx + i_after]
     return (dV * _units["voltage"]) / (dI * _units["current"])
+
+
+def time_constant(current: list[np.ndarray], voltage: list[np.ndarray]):
+    """ Calculate tau and Cm from the average of hyperpolarization steps
+
+    current: list of current steps
+    voltage: list of voltage responses
+
+    """
+    from quickspikes.intracellular import fit_exponentials
+    log.debug("- calculating time constant and capacitance")
+    stats = {"tau": None, "Cm": None, "mse": None}
+    if len(current) == 0 or len(voltage) == 0:
+        log.debug("   - no data (contaminated by spikes?)")
+        return stats
+    hI = np.mean(current, axis=0)
+    hV = np.mean(voltage, axis=0)
+    params, est = fit_exponentials(
+        hV, 2, 20, sampling_period.rescale(_units["time"]), axis=0
+    )
+    err = np.mean((hV - est) ** 2)
+    # use the faster component with positive amplitude
+    pos = (params["amplitude"] > 0) & (params["lifetime"] > 0)
+    try:
+        idx = params["lifetime"][pos].argmin()
+    except ValueError:
+        log.debug("   - unable to fit double exponential")
+        return stats
+    tau = params["lifetime"][pos][idx] * _units["time"]
+    dV = params["amplitude"][pos][idx] * _units["voltage"]
+    dI = (hI[0] - hI[-steady_hypol_samples:].mean()) * _units["current"]
+    # This Rm should not be used, because it reflects both the sag and the leak
+    # current. It's only used to get Cm from the time constant.
+    Rm = (dV / dI).rescale(_units["resistance"])
+    return {
+        "tau": tau,
+        "Cm": (tau / Rm).rescale(_units["capacitance"]),
+        "mse": err,
+    }
 
 
 if __name__ == "__main__":
@@ -383,32 +413,8 @@ if __name__ == "__main__":
         else:
             trial["Rm"] = None
         pprox["pprox"].append(trial)
-
-    # calculate tau and Cm from the average of all sweeps
-    if len(hypol_V) > 0:
-        hI = np.mean(hypol_I, axis=0)
-        hV = np.mean(hypol_V, axis=0)
-        params, est = fit_exponentials(
-            hV, 2, 20, sampling_period.rescale(_units["time"]), axis=0
-        )
-        err = np.mean((hV - est) ** 2)
-        # use the faster component with positive amplitude
-        pos = params["amplitude"] > 0
-        idx = params["lifetime"][pos].argmin()
-        tau = params["lifetime"][pos][idx] * _units["time"]
-        dV = params["amplitude"][pos][idx] * _units["voltage"]
-        dI = (hI[0] - hI[-steady_hypol_samples:].mean()) * _units["current"]
-        # This Rm should not be used, because it reflects both the sag and the leak
-        # current. It's only used to get Cm from the time constant.
-        Rm = (dV / dI).rescale(_units["resistance"])
-        pprox["stats"] = {
-            "tau": tau,
-            "Cm": (tau / Rm).rescale(_units["capacitance"]),
-            "mse": err,
-        }
-    else:
-        pprox["stats"] = {"tau": None, "Cm": None, "mse": None}
-
+    
+    pprox["stats"] = time_constant(hypol_I, hypol_V)
     # output to json
     short_name = args.neuron.split("-")[0]
     output_file = args.output_dir / f"{short_name}_{args.epoch}.pprox"

@@ -3,6 +3,7 @@ set -e
 OUTDIR="build/"
 
 mkdir -p ${OUTDIR}
+echo "clearing ${OUTDIR}"
 rm -f ${OUTDIR}/*.pprox
 
 grep -v "^#" $1 | \

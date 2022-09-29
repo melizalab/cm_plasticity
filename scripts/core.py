@@ -17,6 +17,15 @@ def setup_log(log, debug=False):
     log.addHandler(ch)
 
 
+def with_units(unit: pq.UnitQuantity):
+    return lambda x: x * unit
+
+
+def first_index(fn, seq):
+    """Returns the index of the first value in seq where fn(x) is True"""
+    return next((i for (i, x) in enumerate(seq) if fn(x)), None)
+
+
 class Interval:
     """Class for facilitating selecting samples from time series"""
 
