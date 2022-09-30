@@ -145,7 +145,7 @@ if __name__ == "__main__":
     log.info("- date: %s", datetime.datetime.now())
     log.info("- version: %s", __version__)
 
-    log.info("- loading pprox files")
+    log.info("- loading %d pprox files", len(args.epochs))
     sweeps = pd.concat([load_epoch(path) for path in args.epochs])
     cells = (
         sweeps.reset_index()[["cell", "bird", "sire"]]
@@ -181,14 +181,11 @@ if __name__ == "__main__":
     epoch_stats = (
         sweep_stats.groupby(["cell", "epoch"]).apply(epoch_firing_stats).join(epochs)
     )
-    log.info("- checking for bad epochs (Rs deviance)")
     r_dev = (
         epoch_stats[["Rs", "Rm", "Vm"]]
         .groupby("cell", group_keys=False)
         .apply(lambda x: (x - x.iloc[0]) / x.iloc[0].abs())
+        .rename(columns=lambda s: f"delta_{s}")
     )
-    bad_epochs = r_dev["Rs"].abs() > 0.20
-    log.info("  - excluded %d epochs", bad_epochs.sum())
-    epoch_stats = epoch_stats.loc[~bad_epochs]
-
-    write_results(epoch_stats, args.output_dir / "epoch_stats.csv", "epoch statistics")
+    # to do: print out the epochs that deviate too much
+    write_results(epoch_stats.join(r_dev), args.output_dir / "epoch_stats.csv", "epoch statistics")
