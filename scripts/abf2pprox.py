@@ -346,8 +346,9 @@ if __name__ == "__main__":
         # (which may be 0 amplitude) and two nested hyperpolarizing steps (e.g.
         # -50, -100, -50). Each of the intervals is treated differently.
         steps = {"I": [], "V": []}
-        # baseline: use the whole interval. Spikes are not filtered out.
+        # baseline: use the first whole interval
         padding_samples = int(interval_padding * sampling_rate)
+        steady_depol_samples = int(steady_interval_depol * sampling_rate)
         steady_hypol_samples = int(steady_interval_hypol * sampling_rate)
         step = first_index(lambda x: x == 0, step_val)
         interval = Interval(
@@ -358,9 +359,10 @@ if __name__ == "__main__":
         steps["I"].append(interval.mean_of(I))
         steps["V"].append(interval.mean_of(V, trial["events"]))
         # depolarization: use the last part. voltage is nan if there are spikes
+        # duplicate the first step if there's no depolarization
         step = first_index(lambda x: x > 0, step_val) or 0
         interval = Interval(
-            step_end[step] - int(steady_interval_depol * sampling_rate),
+            step_end[step] - steady_depol_samples,
             step_end[step] - padding_samples,
             sampling_period,
         )
@@ -373,7 +375,7 @@ if __name__ == "__main__":
                 step_end[step],
                 sampling_period.rescale("s"),
             ).times
-        # hyperpolarization
+        # hyperpolarization 1
         Rm = []
         Rs = []
         step = first_index(lambda x: x < 0, step_val)
@@ -421,6 +423,16 @@ if __name__ == "__main__":
         except TypeError:
             pass
         trial["steps"] = steps
+        # last step is another baseline. Use last 300 ms
+        step = len(step_val) - 1
+        interval = Interval(
+            step_end[step] - steady_depol_samples,
+            step_end[step] - padding_samples,
+            sampling_period,
+        )
+        steps["I"].append(interval.mean_of(I))
+        steps["V"].append(interval.mean_of(V, trial["events"]))
+        # average Rs and Rm from the two hyperpolarization steps
         trial["Rs"] = (np.mean(Rs) * _units["voltage"] / _units["current"]).rescale(
             _units["resistance"]
         )
