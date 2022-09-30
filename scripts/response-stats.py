@@ -35,7 +35,7 @@ def load_epoch(path):
 
 
 def sweep_iv_stats(sweep):
-    """ Extract IV data from sweeps """
+    """Extract IV data from sweeps"""
     nsteps = len(sweep["steps.I"])
     return pd.Series(
         np.concatenate([sweep["steps.I"], sweep["steps.V"]]),
@@ -46,7 +46,7 @@ def sweep_iv_stats(sweep):
 
 
 def iv_deviation(sweep_steps):
-    """ Determine absolute deviation from median (in MADs) """
+    """Determine absolute deviation from median (in MADs)"""
     dev = (sweep_steps - sweep_steps.median()).abs()
     return dev / dev.median()
 
@@ -80,7 +80,7 @@ def sweep_firing_stats(sweep):
 
 
 def epoch_firing_stats(sweeps):
-    """ Compute firing stats by epoch """
+    """Compute firing stats by epoch"""
     # find sweeps with spikes
     (idx,) = (sweeps.firing_rate > 0).to_numpy().nonzero()
     # rheobase is undefined if there are no spikes
@@ -109,14 +109,14 @@ def epoch_firing_stats(sweeps):
 
 
 def compare_epochs(cell):
-    """ Compare all the epochs within a cell and mark ones that may need to be excluded """
+    """Compare all the epochs within a cell and mark ones that may need to be excluded"""
     pass
 
 
 def write_results(df, path, name):
     df.to_csv(path)
     log.info("  - wrote %s to '%s'", name, path)
-    
+
 
 if __name__ == "__main__":
     import argparse
@@ -129,13 +129,13 @@ if __name__ == "__main__":
         "--output-dir",
         type=Path,
         default="build",
-        help="directory where output files should be stored"
+        help="directory where output files should be stored",
     )
     parser.add_argument(
         "--max-Vm-deviance",
         type=float,
         default=10.0,
-        help="exclude sweeps where Vm deviates over this value (default %.1f MADs)"
+        help="exclude sweeps where Vm deviates over this value (default %.1f MADs)",
     )
     parser.add_argument(
         "epochs", type=Path, nargs="+", help="epoch pprox files to process"
@@ -160,9 +160,13 @@ if __name__ == "__main__":
     log.info("- computing I-V functions")
     iv_stats = sweeps.apply(sweep_iv_stats, axis=1)
     log.info("- checking for bad sweeps (Vm deviance)")
-    v_dev = iv_stats["voltage"].groupby(["cell", "epoch"], group_keys=False).apply(iv_deviation)
+    v_dev = (
+        iv_stats["voltage"]
+        .groupby(["cell", "epoch"], group_keys=False)
+        .apply(iv_deviation)
+    )
     # only look at baseline and hyperpolarization steps
-    bad_sweeps = (v_dev[[0,2,3,4]] > args.max_Vm_deviance).any(axis=1)
+    bad_sweeps = (v_dev[[0, 2, 3, 4]] > args.max_Vm_deviance).any(axis=1)
     log.info("  - excluded %d sweeps", bad_sweeps.sum())
 
     sweeps = sweeps.loc[~bad_sweeps]
@@ -172,11 +176,19 @@ if __name__ == "__main__":
     sweep_stats = sweeps.apply(sweep_firing_stats, axis=1)
     write_results(iv_stats, args.output_dir / "iv_stats.csv", "I-V steps")
     write_results(sweep_stats, args.output_dir / "sweep_stats.csv", "sweep statistics")
-    
+
     log.info("- computing epoch-level statistics")
     epoch_stats = (
         sweep_stats.groupby(["cell", "epoch"]).apply(epoch_firing_stats).join(epochs)
     )
-    log.info("- checking for bad epochs")
-    write_results(epoch_stats, args.output_dir / "sweep_stats.csv", "epoch statistics")
-    
+    log.info("- checking for bad epochs (Rs deviance)")
+    r_dev = (
+        epoch_stats[["Rs", "Rm", "Vm"]]
+        .groupby("cell", group_keys=False)
+        .apply(lambda x: (x - x.iloc[0]) / x.iloc[0].abs())
+    )
+    bad_epochs = r_dev["Rs"].abs() > 0.20
+    log.info("  - excluded %d epochs", bad_epochs.sum())
+    epoch_stats = epoch_stats.loc[~bad_epochs]
+
+    write_results(epoch_stats, args.output_dir / "epoch_stats.csv", "epoch statistics")
