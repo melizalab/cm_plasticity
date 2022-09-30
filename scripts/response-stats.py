@@ -34,6 +34,23 @@ def load_epoch(path):
         )
 
 
+def sweep_iv_stats(sweep):
+    """ Extract IV data from sweeps """
+    nsteps = len(sweep["steps.I"])
+    return pd.Series(
+        np.concatenate([sweep["steps.I"], sweep["steps.V"]]),
+        index=pd.MultiIndex.from_product(
+            [["current", "voltage"], range(nsteps)], names=["value", "step"]
+        ),
+    )
+
+
+def iv_deviation(sweep_steps):
+    """ Determine absolute deviation from median (in MADs) """
+    dev = (sweep_steps - sweep_steps.median()).abs()
+    return dev / dev.median()
+
+
 def sweep_firing_stats(sweep):
     try:
         step = pd.Interval(*sweep["stimulus.interval"])
@@ -59,17 +76,6 @@ def sweep_firing_stats(sweep):
             "Vm": sweep.Vm,
             "temperature": sweep.temperature,
         }
-    )
-
-
-def sweep_iv_stats(sweep):
-    """ Extract IV data from sweeps """
-    nsteps = len(sweep["steps.I"])
-    return pd.Series(
-        np.concatenate([sweep["steps.I"], sweep["steps.V"]]),
-        index=pd.MultiIndex.from_product(
-            [["current", "voltage"], range(nsteps)], names=["value", "step"]
-        ),
     )
 
 
@@ -107,6 +113,11 @@ def compare_epochs(cell):
     pass
 
 
+def write_results(df, path, name):
+    df.to_csv(path)
+    log.info("  - wrote %s to '%s'", name, path)
+    
+
 if __name__ == "__main__":
     import argparse
 
@@ -119,6 +130,12 @@ if __name__ == "__main__":
         type=Path,
         default="build",
         help="directory where output files should be stored"
+    )
+    parser.add_argument(
+        "--max-Vm-deviance",
+        type=float,
+        default=10.0,
+        help="exclude sweeps where Vm deviates over this value (default %.1f MADs)"
     )
     parser.add_argument(
         "epochs", type=Path, nargs="+", help="epoch pprox files to process"
@@ -140,16 +157,26 @@ if __name__ == "__main__":
         .drop_duplicates()
         .set_index(["cell", "epoch"])
     )
+    log.info("- computing I-V functions")
+    iv_stats = sweeps.apply(sweep_iv_stats, axis=1)
+    log.info("- checking for bad sweeps (Vm deviance)")
+    v_dev = iv_stats["voltage"].groupby(["cell", "epoch"], group_keys=False).apply(iv_deviation)
+    # only look at baseline and hyperpolarization steps
+    bad_sweeps = (v_dev[[0,2,3,4]] > args.max_Vm_deviance).any(axis=1)
+    log.info("  - excluded %d sweeps", bad_sweeps.sum())
+
+    sweeps = sweeps.loc[~bad_sweeps]
+    iv_stats = iv_stats.loc[~bad_sweeps].stack("step")
+
     log.info("- computing sweep-level statistics")
     sweep_stats = sweeps.apply(sweep_firing_stats, axis=1)
-    log.info("- computing I-V functions")
-    iv_stats = sweeps.apply(sweep_iv_stats, axis=1).stack("step")
+    write_results(iv_stats, args.output_dir / "iv_stats.csv", "I-V steps")
+    write_results(sweep_stats, args.output_dir / "sweep_stats.csv", "sweep statistics")
+    
     log.info("- computing epoch-level statistics")
     epoch_stats = (
         sweep_stats.groupby(["cell", "epoch"]).apply(epoch_firing_stats).join(epochs)
     )
-    out = args.output_dir / "epoch_stats.csv"
-    epoch_stats.to_csv(out)
-    log.info("  - wrote epoch stats to '%s'", out)
     log.info("- checking for bad epochs")
+    write_results(epoch_stats, args.output_dir / "sweep_stats.csv", "epoch statistics")
     
