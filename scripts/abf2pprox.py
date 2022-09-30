@@ -57,13 +57,14 @@ steady_interval_hypol = 150 * pq.ms
 
 def series_resistance(current, voltage, idx, i_before, i_after):
     """Calculates ΔV/ΔI around idx. The differences are calculated using the
-    mean of current and voltage between [idx - i_before, idx) and the spot value
-    of current and voltage at idx + i_after.
+    current and voltage at idx and the values at idx + i_after.
 
     """
-    before = Interval(idx - i_before, idx, None)
-    dI = before.mean_of(current) - current[idx + i_after]
-    dV = before.mean_of(voltage) - voltage[idx + i_after]
+    # before = Interval(idx - i_before, idx, None)
+    # dI = before.mean_of(current) - current[idx + i_after]
+    # dV = before.mean_of(voltage) - voltage[idx + i_after]
+    dI = current[idx] - current[idx + i_after]
+    dV = voltage[idx] - voltage[idx + i_after]
     return (dV * _units["voltage"]) / (dI * _units["current"])
 
 
