@@ -83,10 +83,14 @@ def epoch_firing_stats(sweeps):
     """Compute firing stats by epoch"""
     # find sweeps with spikes
     (idx,) = (sweeps.firing_rate > 0).to_numpy().nonzero()
-    # rheobase is undefined if there are no spikes
+    # if there are no spikes, rheobase is undefined and slope is zero
     if len(idx) == 0:
         I_0 = np.nan
         slope = 0
+    # rheobase is also undefined if there are spikes with zero current injected
+    elif idx[0] == 0:
+        I_0 = np.nan
+        slope = np.mean(np.diff(sweeps.firing_rate) / np.diff(sweeps.current))
     else:
         df = sweeps.iloc[idx[0] - 1 :]
         # rheobase: midpoint between current levels that evoke firing
