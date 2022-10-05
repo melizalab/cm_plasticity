@@ -75,6 +75,8 @@ def sweep_firing_stats(sweep):
             "Rm": sweep.Rm,
             "Vm": sweep.Vm,
             "temperature": sweep.temperature,
+            "spike_width": sweep["first_spike.width"],
+            "spike_trough": sweep["first_spike.trough_t"]
         }
     )
 
@@ -108,6 +110,8 @@ def epoch_firing_stats(sweeps):
             "Rm": sweeps.Rm.mean(),
             "Vm": sweeps.Vm.mean(),
             "temperature": sweeps.temperature.mean(),
+            "spike_width": sweeps.spike_width.mean(),
+            "spike_trough": sweeps.spike_trough.mean()
         }
     )
 

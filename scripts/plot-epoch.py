@@ -180,7 +180,7 @@ if __name__ == "__main__":
         s_ax.set_xlim(args.xlim)
 
     if args.output is None:
-        log.info("- plot was not saved - use `-O`")
+        plt.show()
     elif args.output.is_dir():
         path = (args.output / args.epoch.stem).with_suffix(".pdf")
         log.info("- saving plot to %s", path)

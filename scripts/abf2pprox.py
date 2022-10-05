@@ -445,7 +445,7 @@ if __name__ == "__main__":
         hypol_I, hypol_V, dt=sampling_period.rescale(_units["time"])
     )
     # output to json
-    output_file = args.output_dir / f"{short_name}_{args.epoch}.pprox"
+    output_file = args.output_dir / f"{short_name}_{args.epoch:02}.pprox"
     with open(output_file, "wt") as fp:
         json.dump(pprox, fp, default=json_serializable)
     log.info("- wrote results to `%s`", output_file)

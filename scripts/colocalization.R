@@ -2,8 +2,7 @@
 library(readr)
 library(dplyr)
 
-biocytin_cells = read_csv("inputs/biocytin_cells.csv") %>% select(cell, kv11) %>% filter(!is.na(cell), !is.na(kv11))
-
+biocytin_cells = read_csv("inputs/biocytin_cells.csv") %>% select(cell, kv11) %>% filter(!is.na(cell)) #, !is.na(kv11))
 epoch_stats = read_csv("build/epoch_stats.csv")
 
 ## select first epoch
