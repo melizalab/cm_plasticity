@@ -6,6 +6,21 @@ import numpy as np
 import quantities as pq
 from functools import singledispatch
 
+kOhm = pq.UnitQuantity("kiloohm", pq.ohm * 1e3, symbol="kΩ")
+MOhm = pq.UnitQuantity("megaohm", pq.ohm * 1e6, symbol="MΩ")
+GOhm = pq.UnitQuantity("gigaohm", pq.ohm * 1e9, symbol="GΩ")
+pFarad = pq.UnitQuantity("picofarad", pq.farad * 1e-12, symbol="pF")
+fFarad = pq.UnitQuantity("femtofarad", pq.farad * 1e-15, symbol="fF")
+junction_potential = pq.Quantity(11.6, "mV")  # measured at 32 C
+
+_units = {
+    "voltage": pq.mV,
+    "current": pq.pA,
+    "resistance": MOhm,
+    "time": pq.ms,
+    "temperature": "C",
+    "capacitance": pFarad,
+}
 
 def setup_log(log, debug=False):
     ch = logging.StreamHandler()

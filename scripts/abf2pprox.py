@@ -27,27 +27,19 @@ import quantities as pq
 import quickspikes.tools as qst
 from quickspikes.intracellular import SpikeFinder, spike_shape
 
-from core import with_units, first_index, setup_log, json_serializable, Interval
+from core import (
+    with_units,
+    first_index,
+    setup_log,
+    json_serializable,
+    Interval,
+    junction_potential,
+    _units,
+)
 
 birddb_url = "https://gracula.psyc.virginia.edu/birds/api/animals/"
 log = logging.getLogger()
 __version__ = "20220928"
-
-kOhm = pq.UnitQuantity("kiloohm", pq.ohm * 1e3, symbol="kΩ")
-MOhm = pq.UnitQuantity("megaohm", pq.ohm * 1e6, symbol="MΩ")
-GOhm = pq.UnitQuantity("gigaohm", pq.ohm * 1e9, symbol="GΩ")
-pFarad = pq.UnitQuantity("picofarad", pq.farad * 1e-12, symbol="pF")
-fFarad = pq.UnitQuantity("femtofarad", pq.farad * 1e-15, symbol="fF")
-junction_potential = pq.Quantity(11.6, "mV")  # measured at 32 C
-
-_units = {
-    "voltage": pq.mV,
-    "current": pq.pA,
-    "resistance": MOhm,
-    "time": pq.ms,
-    "temperature": "C",
-    "capacitance": pFarad,
-}
 
 # some hard-coded intervals
 interval_padding = 2 * pq.ms
