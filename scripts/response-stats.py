@@ -13,7 +13,7 @@ import pandas as pd
 from core import setup_log
 
 log = logging.getLogger()
-__version__ = "20220928"
+__version__ = "20221005"
 
 
 def load_epoch(path):

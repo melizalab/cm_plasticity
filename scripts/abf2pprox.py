@@ -39,7 +39,7 @@ from core import (
 
 birddb_url = "https://gracula.psyc.virginia.edu/birds/api/animals/"
 log = logging.getLogger()
-__version__ = "20220928"
+__version__ = "20221005"
 
 # some hard-coded intervals
 interval_padding = 2 * pq.ms
