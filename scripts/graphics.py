@@ -133,9 +133,40 @@ def add_scalebar(ax, hidex=True, hidey=True, **kwargs):
     return sb
 
 
-def simpleaxis(*axes):
+def simple_axes(*axes):
     for ax in axes:
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
         ax.get_xaxis().tick_bottom()
         ax.get_yaxis().tick_left()
+
+
+def hide_axes(*axes):
+    for ax in axes:
+        ax.get_xaxis().set_visible(False)
+        ax.get_yaxis().set_visible(False)
+        ax.set_frame_on(False)
+
+
+def adjust_raster_ticks(ax, gap=0):
+    """Adjust raster marks to have gap pixels between them (sort of)"""
+    miny, maxy = ax.get_ylim()
+    ht = ax.get_window_extent().height
+    for p in ax.lines:
+        p.set_markersize(ht / ((maxy - miny)) - gap)
+
+
+def offset_traces(ax, annotate=False):
+    data_ranges = [x.get_ydata().ptp() for x in ax.lines]
+    step = max(data_ranges)
+    offset = 0
+    # these should be in order of insertion
+    for i, line in enumerate(ax.lines):
+        x = line.get_xdata()
+        y = line.get_ydata()
+        line.set_ydata(y + offset)
+        if annotate:
+            ax.text(x[0], y[0] + offset, "%.0f" % y[0], fontsize=7, ha="right")
+        offset += step
+    ylim = ax.get_ylim()
+    ax.set_ylim((ylim[0], ylim[1] + offset))
