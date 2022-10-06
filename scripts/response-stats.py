@@ -23,14 +23,22 @@ def load_epoch(path):
         epoch = pd.json_normalize(
             data,
             "pprox",
-            ["cell", "epoch", "bird", "sire", ["stats", "tau"], ["stats", "Cm"]],
+            [
+                "cell",
+                "epoch",
+                "bird",
+                "sire",
+                "timestamp",
+                ["stats", "tau"],
+                ["stats", "Cm"],
+            ],
         )
         return (
             epoch.rename(
                 columns={"index": "sweep", "stats.tau": "tau", "stats.Cm": "Cm"}
             )
             .set_index(["cell", "epoch", "sweep"])
-            .drop(columns=["offset", "interval"])
+            .drop(columns=["interval"])
         )
 
 
@@ -76,7 +84,7 @@ def sweep_firing_stats(sweep):
             "Vm": sweep.Vm,
             "temperature": sweep.temperature,
             "spike_width": sweep["first_spike.width"],
-            "spike_trough": sweep["first_spike.trough_t"]
+            "spike_trough": sweep["first_spike.trough_t"],
         }
     )
 
@@ -111,7 +119,7 @@ def epoch_firing_stats(sweeps):
             "Vm": sweeps.Vm.mean(),
             "temperature": sweeps.temperature.mean(),
             "spike_width": sweeps.spike_width.mean(),
-            "spike_trough": sweeps.spike_trough.mean()
+            "spike_trough": sweeps.spike_trough.mean(),
         }
     )
 
@@ -161,9 +169,15 @@ if __name__ == "__main__":
         .set_index("cell")
     )
     epochs = (
-        sweeps.reset_index()[["cell", "epoch", "tau", "Cm"]]
+        sweeps.reset_index()[["cell", "epoch", "timestamp", "tau", "Cm"]]
         .drop_duplicates()
         .set_index(["cell", "epoch"])
+    )
+    ts = epochs.pop("timestamp").apply(pd.Timestamp)
+    epochs["time"] = (
+        ts.groupby(["cell"], group_keys=False)
+        .apply(lambda x: (x - x.iloc[0]))
+        .apply(lambda x: x.total_seconds())
     )
     log.info("- computing I-V functions")
     iv_stats = sweeps.apply(sweep_iv_stats, axis=1)
@@ -196,4 +210,6 @@ if __name__ == "__main__":
         .rename(columns=lambda s: f"delta_{s}")
     )
     # to do: print out the epochs that deviate too much
-    write_results(epoch_stats.join(r_dev), args.output_dir / "epoch_stats.csv", "epoch statistics")
+    write_results(
+        epoch_stats.join(r_dev), args.output_dir / "epoch_stats.csv", "epoch statistics"
+    )
