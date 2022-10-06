@@ -13,7 +13,7 @@ import pandas as pd
 from core import setup_log
 
 log = logging.getLogger()
-__version__ = "20221005"
+__version__ = "20221006"
 
 
 def load_epoch(path):
@@ -97,26 +97,35 @@ def epoch_firing_stats(sweeps):
     if len(idx) == 0:
         I_0 = np.nan
         slope = 0
+        n_spike_sweeps = 0
     # rheobase is also undefined if there are spikes with zero current injected
     elif idx[0] == 0:
         I_0 = np.nan
         slope = np.mean(np.diff(sweeps.firing_rate) / np.diff(sweeps.current))
+        n_spike_sweeps = 0
     else:
         df = sweeps.iloc[idx[0] - 1 :]
+        n_spike_sweeps = df.shape[0]
         # rheobase: midpoint between current levels that evoke firing
         I_0 = (df.current[1] + df.current[0]) / 2
         # f-I slope: average of the slopes (simpler and more stable than linear regression)
         slope = np.mean(np.diff(df.firing_rate) / np.diff(df.current))
     return pd.Series(
         {
+            "n_sweeps": sweeps.shape[0],
+            "n_spike_sweeps": n_spike_sweeps,
             "duration_max": sweeps.firing_duration.max(),
             "duration_mean": sweeps.firing_duration.mean(),
+            "duration_sd": sweeps.firing_duration.std(),
             "rate_max": sweeps.firing_rate.max(),
             "rheobase": I_0,
             "slope": slope,
             "Rs": sweeps.Rs.mean(),
+            "Rs_sd": sweeps.Rs.std(),
             "Rm": sweeps.Rm.mean(),
+            "Rm_sd": sweeps.Rm.std(),
             "Vm": sweeps.Vm.mean(),
+            "Vm_sd": sweeps.Vm.std(),
             "temperature": sweeps.temperature.mean(),
             "spike_width": sweeps.spike_width.mean(),
             "spike_trough": sweeps.spike_trough.mean(),
