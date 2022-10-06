@@ -1,19 +1,24 @@
 
 library(readr)
 library(dplyr)
+library(ggplot2)
 
 coloc_epochs = read_csv("inputs/colocalization_epochs.csv")
 biocytin_cells = read_csv("inputs/biocytin_cells.csv") %>% select(cell, kv11) %>% filter(!is.na(cell), !is.na(kv11))
 epoch_stats = read_csv("build/epoch_stats.csv") %>% semi_join(coloc_epochs, by=c("cell", "epoch"))
 
-## select first epoch
-## cell_stats = group_by(epoch_stats, cell) %>% arrange(epoch) %>% filter(row_number()==1) %>% inner_join(biocytin_cells, by="cell")
-
 ## average epochs
 cell_stats = (
      group_by(epoch_stats, cell) %>%
-     summarize(duration_mean=mean(duration_mean, na.rm=T), slope_mean=mean(slope, na.rm=T)) %>%
-     inner_join(biocytin_cells, by="cell")
+     ## this would select first epoch
+     ## arrange(epoch) %>% filter(row_number()==1) %>%
+     summarize(duration_mean=mean(duration_mean, na.rm=T),
+               slope_mean=mean(slope, na.rm=T),
+	       spike_width=median(spike_width, na.rm=T),
+	       temperature=median(temperature, na.rm=T)) %>%
+     ## filter out narrow-spiking cells       
+     filter(spike_width > 0.9) %>%
+     inner_join(biocytin_cells, by="cell") 
 )
 
 ## TODO make this look pretty
