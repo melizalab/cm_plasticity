@@ -43,7 +43,6 @@ name,cell,kv11
 20200120_3_1,a85d902c,NA
 20200120_4_1,494292e4,negative
 20200120_5_1,8973d0fb,positive
-20200120_5_1'-unknown,NA,positive
 20200815_1_1,0db02609,positive
 20200815_1_2,NA,positive
 20200815_2_1,e218e147,negative
@@ -58,7 +57,6 @@ name,cell,kv11
 20200816_6_1,3e71b764,positive
 20200816_6_2,f011f9b7,positive
 20200816_6_3,c2d2838b,positive
-20200816_6_discarded,NA,positive
 20200818_1_1,2e33b971,NA
 20200818_2_1,328b1402,positive
 20200818_2_2,03302501,NA
