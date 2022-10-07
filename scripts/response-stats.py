@@ -109,7 +109,7 @@ def epoch_firing_stats(sweeps):
         # rheobase: midpoint between current levels that evoke firing
         I_0 = (df.current[1] + df.current[0]) / 2
         # f-I slope: average of the slopes (simpler and more stable than linear regression)
-        slope = np.mean(np.diff(df.firing_rate) / np.diff(df.current))
+        slope = (df.firing_rate.diff() / df.current.diff()).mean()
     return pd.Series(
         {
             "n_sweeps": sweeps.shape[0],

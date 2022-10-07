@@ -1,5 +1,6 @@
-library(stringr)
 library(readr)
+library(stringr)
+library(tidyr)
 library(dplyr)
 library(ggplot2)
 
@@ -23,6 +24,14 @@ first_last = (
     %>% filter(spike_width > 0.9)
 )
 
+## compute deltas
+deltas = (
+    first_last
+    %>% select(cell, epoch_cond, duration_mean, slope, Rm, Vm, rheobase)
+    %>% pivot_wider(names_from=epoch_cond, values_from=c(duration_mean, slope, Rm, Vm, rheobase))
+)    
+
 ## CR only
 df_cr = filter(first_last, condition=="cr")
-ggplot(df, aes(epoch_cond, duration_mean, group=cell)) + geom_point() + geom_line()
+ggplot(df_cr, aes(epoch_cond, duration_mean, group=cell)) + geom_point() + geom_line()
+
