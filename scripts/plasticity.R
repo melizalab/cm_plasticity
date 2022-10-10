@@ -42,12 +42,29 @@ deltas = (
          Vm=diff(Vm),
          rheobase=diff(rheobase)
     )
+    %>% pivot_longer(c(slope, Rs, Rm, Vm, rheobase), names_to="measure")
 )
 
+## Compare first and last
+p1 <- (
+    ggplot(first_last, aes(epoch_cond, duration_mean, group=cell))
+    + facet_wrap(vars(condition), nrow=1)
+    + geom_line()
+    + geom_point(fill="white", shape=21, size=3)
+    + ylab("Duration (s)")
+    + xlab("Epoch")
+)
+
+
 ## CR only
-df_cr = filter(first_last, condition=="cr")
 dt_cr = filter(deltas, condition=="cr")
 
-p1 <- ggplot(df_cr, aes(epoch_cond, duration_mean, group=cell)) + geom_point() + geom_line()
-p2 <- ggplot(dt_cr, aes(duration, slope)) + geom_point(fill="white", shape=21, size=3) + ylab("Δ Slope (Hz/pA)") + xlab("Δ Duration (s)")
-ggplot(df, aes(duration, value)) + facet_wrap(vars(measure), nrow=1, scales="free", strip.position="left") + geom_point(fill="white", shape=21, size=3) + stat_smooth(method=lm)
+p2 <- (
+    ggplot(dt_cr, aes(duration, value))
+    + facet_wrap(vars(measure), nrow=1, scales="free", strip.position="left")
+    + geom_point(fill="white", shape=21, size=3)
+    + stat_smooth(method=lm)
+    + ylab("Δ")
+    + xlab("Δ Duration (s)")
+)
+
