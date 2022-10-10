@@ -13,7 +13,7 @@ import pandas as pd
 from core import setup_log
 
 log = logging.getLogger()
-__version__ = "20221006"
+__version__ = "20221010"
 
 
 def load_epoch(path):
@@ -213,12 +213,19 @@ if __name__ == "__main__":
         sweep_stats.groupby(["cell", "epoch"]).apply(epoch_firing_stats).join(epochs)
     )
     r_dev = (
-        epoch_stats[["Rs", "Rm", "Vm"]]
+        epoch_stats[["Rs", "Rm"]]
         .groupby("cell", group_keys=False)
         .apply(lambda x: (x - x.iloc[0]) / x.iloc[0].abs())
         .rename(columns=lambda s: f"delta_{s}")
     )
+    v_dev = (
+        epoch_stats[["Vm"]]
+        .groupby("cell", group_keys=False)
+        .apply(lambda x: (x - x.iloc[0]))
+        .rename(columns=lambda s: f"delta_{s}")
+    )
+
     # to do: print out the epochs that deviate too much
     write_results(
-        epoch_stats.join(r_dev), args.output_dir / "epoch_stats.csv", "epoch statistics"
+        epoch_stats.join([r_dev, v_dev]), args.output_dir / "epoch_stats.csv", "epoch statistics"
     )
