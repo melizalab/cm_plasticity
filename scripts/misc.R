@@ -21,7 +21,7 @@ plasticity_epochs = filter(conditions, condition %in% c("cr", "noinj", "bapta", 
 write_csv(plasticity_epochs, "plasticity_epochs.csv")
 
 ## for 4-AP reversal
-epoch_levels = c("mid", "first", "last", "post")
+epoch_levels = c("mid", "first", "pre", "post")
 reversal_epochs = (
     filter(conditions, condition=="4ap")
     %>% mutate(epoch_type=factor(epochcond, labels=epoch_levels))
