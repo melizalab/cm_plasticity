@@ -265,7 +265,6 @@ if __name__ == "__main__":
         except IndexError:
             log.error(
                 "   - error: no protocol information - gapfree?",
-                args.command_channel,
             )
             parser.exit(-1)
         except ValueError:
