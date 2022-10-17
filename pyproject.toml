@@ -20,9 +20,6 @@ quickspikes = "^1.4.0"
 scikit-learn = "^1.1.2"
 chebyfit = "^2022.8.26"
 
-[tool.poetry.dev-dependencies]
-jupyterlab = "^3.4.3"
-
 [build-system]
 requires = ["setuptools>=65.3", "poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
