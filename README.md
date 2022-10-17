@@ -11,7 +11,7 @@ The purpose of this file is to identify directories, file, and scripts, as well 
 
 ## Setup
 
-poetry is used to manage software dependencies. Run `poetry install` to install any requirements.
+poetry is used to manage software dependencies. Run `poetry install` to install any requirements. Run `poetry shell` to activate the virtual environment with these requirements whenever you are doing work on the project.
 
 ## Workflow
 

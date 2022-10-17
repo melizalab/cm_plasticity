@@ -56,4 +56,4 @@ if __name__ == "__main__":
         except ValueError:
             log.debug("%s %d: not current clamp", args.neuron, epoch_idx)
         else:
-            print(f"{args.neuron}  {epoch_idx}")
+            print(f"{args.neuron} {epoch_idx}")
