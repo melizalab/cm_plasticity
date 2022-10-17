@@ -10,14 +10,11 @@ authors = ["Yao Lu", "Dan Meliza"]
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.12"
-setuptools = "^65.3.0"
 pandas = "^1.4.3"
-numpy = "^1.23.1"
 matplotlib = "^3.5.2"
 neurobank = "^0.9.7"
 neo = "^0.11.0"
 quickspikes = "^1.4.0"
-scikit-learn = "^1.1.2"
 chebyfit = "^2022.8.26"
 
 [build-system]
