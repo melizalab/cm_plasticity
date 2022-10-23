@@ -17,7 +17,7 @@ poetry is used to manage software dependencies. Run `poetry install` to install 
 
 1. Deposit data to neurobank archive. The data type needs to be `intracellular-abfdir`, and you **must** ensure that the uuid of the bird is stored as metadata. Example: `nbank deposit -k experimenter=anc4kj -k bird=a44b322f-d582-4b69-87c7-7de4a7945478 -k name=20180709_1_2 -A -d intracellular-abfdir /home/data/intracellular/ 20180709_1_2`
 2. Add cells to `inputs/cells_new.tbl`.
-3. Scan the the recordings for current step epochs: `batch/scan-cells.sh inputs/cell_new.tbl > inputs/spkstp_epochs_new.tbl`
+3. Scan the the recordings for current step epochs: `batch/scan-cells.sh inputs/cells_new.tbl > inputs/spkstep_epochs_new.tbl`
 4. Process the recordings to generate pprox files: `batch/process-abfs.sh inputs/spkstep_epochs_new.tbl`
 5. Plot the recordings: `batch/plot-epochs.sh`
 6. Remove any obviously bad epochs from `inputs/spkstep_epochs_new.tbl`
