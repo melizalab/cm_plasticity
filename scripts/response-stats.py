@@ -173,7 +173,7 @@ if __name__ == "__main__":
     log.info("- loading %d pprox files", len(args.epochs))
     sweeps = pd.concat([load_epoch(path) for path in args.epochs])
     cells = (
-        sweeps.reset_index()[["cell", "bird", "sire"]]
+        sweeps.reset_index()[["cell", "bird", "sire", "dam"]]
         .drop_duplicates()
         .set_index("cell")
     )
@@ -228,4 +228,7 @@ if __name__ == "__main__":
     # to do: print out the epochs that deviate too much
     write_results(
         epoch_stats.join([r_dev, v_dev]), args.output_dir / "epoch_stats.csv", "epoch statistics"
+    )
+    write_results(
+        cells, args.output_dir / "cell_info.csv", "cell info"
     )
