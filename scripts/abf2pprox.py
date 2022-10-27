@@ -352,19 +352,19 @@ if __name__ == "__main__":
         steps["V"].append(interval.mean_of(V, trial["events"]))
         # depolarization: use the last part. voltage is nan if there are spikes
         # duplicate the first step if there's no depolarization
-        step = first_index(lambda x: x > 0, step_val) or 0
+        dstep = first_index(lambda x: x > 0, step_val) or 0
         interval = Interval(
-            step_end[step] - steady_depol_samples,
-            step_end[step] - padding_samples,
+            step_end[dstep] - steady_depol_samples,
+            step_end[dstep] - padding_samples,
             sampling_period,
         )
         steps["I"].append(interval.mean_of(I))
         steps["V"].append(interval.mean_of(V, trial["events"]))
         trial["stimulus"] = {"I": steps["I"][-1]}
-        if step > 0:
+        if dstep > 0:
             trial["stimulus"]["interval"] = Interval(
-                step_start[step],
-                step_end[step],
+                step_start[dstep],
+                step_end[dstep],
                 sampling_period.rescale("s"),
             ).times
         # hyperpolarization 1
@@ -422,6 +422,13 @@ if __name__ == "__main__":
             step_end[step] - padding_samples,
             sampling_period,
         )
+        # interval for checking for spontaneous spikes is from end of first
+        # depol to end of last hypol
+        trial["spont_interval"] = Interval(
+            step_end[dstep] if dstep > 0 else step_start[0],
+            step_start[step],
+            sampling_period.rescale("s"),
+        ).times
         steps["I"].append(interval.mean_of(I))
         steps["V"].append(interval.mean_of(V, trial["events"]))
         # average Rs and Rm from the two hyperpolarization steps

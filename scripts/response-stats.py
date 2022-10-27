@@ -28,6 +28,7 @@ def load_epoch(path):
                 "epoch",
                 "bird",
                 "sire",
+                "dam",
                 "timestamp",
                 ["stats", "tau"],
                 ["stats", "Cm"],
@@ -74,6 +75,9 @@ def sweep_firing_stats(sweep):
             duration = spikes[-1] - spikes[0]
     except TypeError:
         rate = duration = np.nan
+    # spontaneous spikes
+    spont_interval = pd.Interval(*sweep["spont_interval"])
+    spont_spikes = [e for e in sweep.events if e in spont_interval]
     return pd.Series(
         {
             "current": sweep["stimulus.I"],
@@ -85,6 +89,7 @@ def sweep_firing_stats(sweep):
             "temperature": sweep.temperature,
             "spike_width": sweep["first_spike.width"],
             "spike_trough": sweep["first_spike.trough_t"],
+            "n_spont": len(spont_spikes)
         }
     )
 
@@ -129,6 +134,7 @@ def epoch_firing_stats(sweeps):
             "temperature": sweeps.temperature.mean(),
             "spike_width": sweeps.spike_width.mean(),
             "spike_trough": sweeps.spike_trough.mean(),
+            "n_spont": sweeps.n_spont.sum(),
         }
     )
 
