@@ -39,7 +39,7 @@ from core import (
 
 birddb_url = "https://gracula.psyc.virginia.edu/birds/api/animals/"
 log = logging.getLogger()
-__version__ = "20221005"
+__version__ = "20221026"
 
 # some hard-coded intervals
 interval_padding = 2 * pq.ms
@@ -88,7 +88,7 @@ def time_constant(
     thresh = hV[0] - (hV[0] - hV[i_min]) * decay_thresh
     i_thresh = first_index(lambda x: x < thresh, hV[:i_min])
     params, est = fit_exponentials(hV[:i_thresh], 1, deltat=dt, axis=0)
-    if params[0]["amplitude"] <= 0:
+    if params[0]["amplitude"] <= 0 or params[0]["rate"] <= 0:
         log.debug("   - unable to fit double exponential")
         return stats
     tau = params[0]["rate"] * _units["time"]
