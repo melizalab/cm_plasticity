@@ -25,6 +25,6 @@ poetry is used to manage software dependencies. Run `poetry install` to install 
 8. Move the new cells from `inputs/cells_new.tbl` to `inputs/cells.tbl` and the new epochs from `inputs/spkstep_epochs_new.tbl` to `inputs/spkstep_epochs.tbl`. 
 9. Run `batch/process-abfs.sh inputs/spkstep_epochs.tbl` to process all of your epochs
 10. Run `scripts/response-stats.py --output-dir build build/*.pprox`
-10. Check the updated control files (`.tbl` and `.csv` files) into version control.
+10. Check the updated control files (`.tbl` and `.csv` files in the `inputs` directory) into version control.
 11. Delete `inputs/cells_new.tbl` and `inputs/spkstep_epochs_new.tbl` to clear the decks for the next time.
 
