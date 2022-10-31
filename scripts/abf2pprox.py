@@ -39,7 +39,7 @@ from core import (
 
 birddb_url = "https://gracula.psyc.virginia.edu/birds/api/animals/"
 log = logging.getLogger()
-__version__ = "20221005"
+__version__ = "20221026"
 
 # some hard-coded intervals
 interval_padding = 2 * pq.ms
@@ -88,7 +88,7 @@ def time_constant(
     thresh = hV[0] - (hV[0] - hV[i_min]) * decay_thresh
     i_thresh = first_index(lambda x: x < thresh, hV[:i_min])
     params, est = fit_exponentials(hV[:i_thresh], 1, deltat=dt, axis=0)
-    if params[0]["amplitude"] <= 0:
+    if params[0]["amplitude"] <= 0 or params[0]["rate"] <= 0:
         log.debug("   - unable to fit double exponential")
         return stats
     tau = params[0]["rate"] * _units["time"]
@@ -352,19 +352,19 @@ if __name__ == "__main__":
         steps["V"].append(interval.mean_of(V, trial["events"]))
         # depolarization: use the last part. voltage is nan if there are spikes
         # duplicate the first step if there's no depolarization
-        step = first_index(lambda x: x > 0, step_val) or 0
+        dstep = first_index(lambda x: x > 0, step_val) or 0
         interval = Interval(
-            step_end[step] - steady_depol_samples,
-            step_end[step] - padding_samples,
+            step_end[dstep] - steady_depol_samples,
+            step_end[dstep] - padding_samples,
             sampling_period,
         )
         steps["I"].append(interval.mean_of(I))
         steps["V"].append(interval.mean_of(V, trial["events"]))
         trial["stimulus"] = {"I": steps["I"][-1]}
-        if step > 0:
+        if dstep > 0:
             trial["stimulus"]["interval"] = Interval(
-                step_start[step],
-                step_end[step],
+                step_start[dstep],
+                step_end[dstep],
                 sampling_period.rescale("s"),
             ).times
         # hyperpolarization 1
@@ -422,6 +422,13 @@ if __name__ == "__main__":
             step_end[step] - padding_samples,
             sampling_period,
         )
+        # interval for checking for spontaneous spikes is from end of first
+        # depol to end of last hypol
+        trial["spont_interval"] = Interval(
+            step_end[dstep] if dstep > 0 else step_start[0],
+            step_start[step],
+            sampling_period.rescale("s"),
+        ).times
         steps["I"].append(interval.mean_of(I))
         steps["V"].append(interval.mean_of(V, trial["events"]))
         # average Rs and Rm from the two hyperpolarization steps
