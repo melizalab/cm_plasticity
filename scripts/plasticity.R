@@ -50,20 +50,14 @@ dt_cr = (
     %>% group_by(cell)
     %>% summarize(
 	 condition=first(condition),
-         duration=diff(duration_mean),
-	 slope=diff(slope),
-         Rs=diff(Rs),
-         Rm=diff(Rm),
-         Vm=diff(Vm),
-         rheobase=diff(rheobase),
+	 duration=diff(duration_mean),
 	 time=diff(time)
     )
-    %>% pivot_longer(c(slope, Rs, Rm, Vm, rheobase, time), names_to="measure")
 )
 
-p2 <- (
-    filter(dt_cr, measure=="time")
-    %>% ggplot(aes(value, duration))
+p1 <- (
+    dt_cr
+    %>% ggplot(aes(time, duration))
     + geom_point(fill="white", shape=21, size=3)
     + ylab("Δ Duration (s)")
     + xlab("Time (s)")
@@ -84,14 +78,18 @@ dt_all = (
     %>% summarize(
 	 condition=first(condition),
          duration=diff(duration_mean),
-	 slope=diff(slope)
+	 slope=diff(slope),
+         Rs=diff(Rs),
+         Rm=diff(Rm),
+         Vm=diff(Vm),
+         rheobase=diff(rheobase),
 	 )
     %>% inner_join(cell_info, by="cell")
 )
 
 
 ## Compare first and last
-p1 <- (
+p2 <- (
     ggplot(fl_all, aes(epoch_cond, duration_mean, group=cell))
     + facet_wrap(vars(condition), nrow=1)
     + geom_line()
@@ -99,6 +97,19 @@ p1 <- (
     + ylab("Duration (s)")
     + xlab("Epoch")
 )
+
+## correlate change in duration with other variables
+p3 <- (
+   filter(dt_all, condition=="cr")
+   %>% pivot_longer(c(slope, Rs, Rm, Vm, rheobase), names_to="measure")
+   %>% ggplot(aes(duration, value))
+    + facet_wrap(vars(measure), nrow=1, scales="free", strip.position="left")
+    + geom_point(fill="white", shape=21, size=3)
+    + stat_smooth(method=lm)
+    + ylab("Δ")
+    + xlab("Δ Duration (s)")
+)
+
 
 p2 <- (
     ggplot(first_last, aes(epoch_cond, slope, group=cell))
