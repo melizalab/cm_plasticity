@@ -25,6 +25,7 @@ epoch_stats = (
 select(epoch_stats, cell, epoch, Vm, delta_Rs, delta_Rm) %>% group_by(cell) %>% filter(any(abs(delta_Rs) > 0.3))
 select(epoch_stats, cell, epoch, Rs, Rm, Vm, delta_Vm) %>% group_by(cell) %>% filter(any(delta_Vm > 10))
 select(epoch_stats, cell, epoch, Vm, n_spont) %>% group_by(cell) %>% filter(any(n_spont > 5))
+## -> Remove bad epochs and cells from plasticity_epochs.csv
 
 ## select first and last epochs for each cell and tag them
 ## drop narrow-spiking cells (note: assumes that spike width remains ~constant from first to last)
@@ -38,12 +39,8 @@ first_last = (
     %>% arrange(cell, epoch)
 )
 
-## CR only
-## 1. Duration and slope spaghetti plots
-## 2. change in duration vs time
-## 3. other correlations
+## First, we need to see how long the recording needs to last for plasticity to happen  
 fl_cr = filter(first_last, condition=="cr")
-
 ## compute deltas
 dt_cr = (
     fl_cr
@@ -55,13 +52,17 @@ dt_cr = (
     )
 )
 
-p1 <- (
+p1.1 <- (
     dt_cr
     %>% ggplot(aes(time, duration))
     + geom_point(fill="white", shape=21, size=3)
     + ylab("Δ Duration (s)")
     + xlab("Time (s)")
 )
+pdf("figures/blahblah.pdf", width=x, height=y)
+print(p1.1 + my.theme)
+dev.off()
+
 
 ## All conditions:
 ## drop neurons where time is less than 400 s (need enough time to see plasticity)
@@ -87,20 +88,31 @@ dt_all = (
     %>% inner_join(cell_info, by="cell")
 )
 
+## CR only
+fl_cr = filter(fl_all, condition=="cr")
+dt_cr = filter(dt_all, condition=="cr")
 
-## Compare first and last
-p2 <- (
-    ggplot(fl_all, aes(epoch_cond, duration_mean, group=cell))
-    + facet_wrap(vars(condition), nrow=1)
+## duration for first and last
+p1.2 <- (
+    ggplot(fl_cr, aes(epoch_cond, duration_mean, group=cell))
     + geom_line()
-    + geom_point(fill="white", shape=21, size=3)
+    + geom_point(fill="white", shape=21, size=2)
     + ylab("Duration (s)")
     + xlab("Epoch")
 )
 
-## correlate change in duration with other variables
-p3 <- (
-   filter(dt_all, condition=="cr")
+## change in duration (last - first) - maybe exclude?
+p1.3 <- (
+    ggplot(dt_cr, aes(condition, duration))
+    + geom_boxplot(width=.1, alpha=0.5)
+    + geom_point(fill="white", shape=21, size=2)
+    + ylab("Δ Duration (s)")
+    + xlab("")
+)
+
+## CR: correlate change in duration with other variables
+p1.4 <- (
+   dt_cr
    %>% pivot_longer(c(slope, Rs, Rm, Vm, rheobase), names_to="measure")
    %>% ggplot(aes(duration, value))
     + facet_wrap(vars(measure), nrow=1, scales="free", strip.position="left")
@@ -110,9 +122,33 @@ p3 <- (
     + xlab("Δ Duration (s)")
 )
 
+## PR:
+p1.2 <- (
+     filter(fl_all, condition=="pr")
+    %>% ggplot(aes(epoch_cond, duration_mean, group=cell))
+    + geom_line()
+    + geom_point(fill="white", shape=21, size=2)
+    + ylab("Duration (s)")
+    + xlab("Epoch")
+)
+
+
+## Compare first and last for CR, Noinj, BAPTA
+p2 <- (
+    filter(fl_all, condition!="pr")
+    %>% ggplot(aes(epoch_cond, duration_mean, group=cell))
+    + facet_wrap(vars(condition), nrow=1)
+    + geom_line()
+    + geom_point(fill="white", shape=21, size=3)
+    + ylab("Duration (s)")
+    + xlab("Epoch")
+)
+
+
 
 p2 <- (
-    ggplot(first_last, aes(epoch_cond, slope, group=cell))
+    filter(fl_all, condition!="pr")
+    %>% ggplot(aes(epoch_cond, slope, group=cell))
     + facet_wrap(vars(condition), nrow=1)
     + geom_line()
     + geom_point(fill="white", shape=21, size=3)
@@ -121,8 +157,6 @@ p2 <- (
 )
 
 
-## CR only
-dt_cr = filter(deltas, condition=="cr")
 
 p3 <- (
     ggplot(dt_cr, aes(duration, value))
