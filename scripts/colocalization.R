@@ -2,30 +2,62 @@ library(readr)
 library(dplyr)
 library(ggplot2)
 
+my.theme <- egg::theme_article() + theme(legend.position="none",
+                              	         axis.title=element_text(size=8),
+                                         axis.text=element_text(size=6))
+
 coloc_epochs = read_csv("inputs/colocalization_epochs.csv")
-biocytin_cells = read_csv("inputs/biocytin_cells.csv") %>% select(cell, kv11) %>% filter(!is.na(cell), !is.na(kv11))
+biocytin_cells = (
+     read_csv("inputs/biocytin_cells.csv")
+     %>% filter(!is.na(cell), !is.na(kv11))
+)
 epoch_stats = read_csv("build/epoch_stats.csv") %>% semi_join(coloc_epochs, by=c("cell", "epoch"))
 
+## combine counts across sections in kv11 ihc data
+kv11_stats = (
+     read_csv(
+         "inputs/kv11_puncta.csv",
+         col_names=c("image", "opt_section", "puncta", "area", "density", "coloc"),
+         skip=1
+     )
+     %>% mutate(image=str_replace(image, "_[0-9]+$", ""))
+     %>% group_by(image)
+     %>% summarize(puncta=sum(puncta), volume=sum(area))
+     %>% mutate(density=puncta/volume * 1000)
+)
+
 ## average epochs
+## filter out narrow-spiking cells       
 cell_stats = (
-     group_by(epoch_stats, cell) %>%
-     ## this would select first epoch
-     ## arrange(epoch) %>% filter(row_number()==1) %>%
-     summarize(duration_mean=mean(duration_mean, na.rm=T),
-               slope_mean=mean(slope, na.rm=T),
-	       spike_width=median(spike_width, na.rm=T),
-	       temperature=median(temperature, na.rm=T)) %>%
-     ## filter out narrow-spiking cells       
-     filter(spike_width > 0.9) %>%
-     inner_join(biocytin_cells, by="cell") 
+     group_by(epoch_stats, cell) 
+     %>% summarize(duration_mean=mean(duration_mean, na.rm=T),
+                  slope_mean=mean(slope, na.rm=T),
+	          spike_width=median(spike_width, na.rm=T),
+	          temperature=median(temperature, na.rm=T))
+      %>% filter(spike_width > 0.9)
+      %>% inner_join(biocytin_cells, by="cell")
+      %>% left_join(kv11_stats, by="image")
+)
+
+## manual classification:
+p1 <- (
+   cell_stats
+   %>% ggplot(aes(kv11, duration_mean))
+   + geom_jitter(width=0.1, fill="white", shape=21, size=2)
+   + ylab("Duration (s)")
+   + xlab("Kv1.1")
+)
+
+## automated pipeline
+p2 <- (
+   cell_stats
+   %>% ggplot(aes(density, duration_mean))
+   + geom_point(fill="white", shape=21, size=2)
+   + ylab("Duration (s)")
+   + xlab("Kv1.1 density (a.u.)")
 )
 
 ## TODO make this look pretty
-pdf("figures/kv11_duration.pdf)
-ggplot(cell_stats, aes(kv11, duration_mean)) +
-      geom_jitter(width=0.1) +
-      ylab("Duration (s)")
-dev.off()
 
 ## simple stats:
 wilcox.test(duration_mean ~ kv11, cell_stats)
