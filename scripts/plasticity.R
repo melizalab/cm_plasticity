@@ -59,9 +59,6 @@ p1.1 <- (
     + ylab("Δ Duration (s)")
     + xlab("Time (s)")
 )
-pdf("figures/blahblah.pdf", width=x, height=y)
-print(p1.1 + my.theme)
-dev.off()
 
 
 ## All conditions:
@@ -167,3 +164,40 @@ p3 <- (
     + xlab("Δ Duration (s)")
 )
 
+## Statistics: 
+library(lme4)
+library(emmeans)
+
+## first the basic epoch-level model
+(fm_e <- lmer(duration ~ condition + (1|bird), dt_all))
+
+## Full analysis uses sweeps instead of epochs so that the LMM will do some partial pooling.
+sweep_stats = (
+    read_csv("build/sweep_stats.csv")
+    %>% filter(!is.na(firing_duration))
+    %>% inner_join(select(fl_all, cell, epoch, condition, bird, sire, epoch_cond))
+)
+(fm_s <- lmer(log10(firing_duration) ~ condition*epoch_cond + (1|cell) + (1|bird), sweep_stats))
+
+## use emmeans to calculate contrasts
+## 1. last - first for each condition
+em_delta <- (
+    fm_s
+    %>% emmeans(~ epoch_cond*condition)
+    %>% contrast("revpairwise", by="condition")
+)
+p4 <- (
+    confint(em_delta, level=0.50, type="response")
+    %>% ggplot(aes(condition, ratio, ymin=lower.CL, ymax=upper.CL))
+    + geom_linerange(size=1.5)
+    + geom_linerange(data=confint(em_delta, level=0.90, type="response"))
+    + geom_point(size=2.5, shape=21, fill="white")
+    + geom_hline(yintercept=1.0)
+    + scale_y_continuous("Δ Duration", labels = scales::percent)
+)
+pdf("figures/duration_change.pdf", width=6, height=4)
+print(p4 + my.theme)
+dev.off()
+
+## post-hoc comparisons:
+emmeans(fm_s, ~ epoch_cond*condition) %>% contrast(interaction="revpairwise")
