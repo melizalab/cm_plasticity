@@ -1,6 +1,7 @@
 library(readr)
 library(dplyr)
 library(ggplot2)
+library(stringr)
 
 my.theme <- egg::theme_article() + theme(legend.position="none",
                               	         axis.title=element_text(size=8),
@@ -20,6 +21,7 @@ kv11_stats = (
          col_names=c("image", "opt_section", "puncta", "area", "density", "coloc"),
          skip=1
      )
+     ## strip off last part of name (denotes objective power)
      %>% mutate(image=str_replace(image, "_[0-9]+$", ""))
      %>% group_by(image)
      %>% summarize(puncta=sum(puncta), volume=sum(area))
