@@ -3,9 +3,15 @@ library(dplyr)
 library(ggplot2)
 library(stringr)
 
-my.theme <- egg::theme_article() + theme(legend.position="none",
-                              	         axis.title=element_text(size=6),
-                                         axis.text=element_text(size=4))
+my.theme <- theme_classic() + theme(legend.position="none",
+                                    axis.line=element_line(linewidth=0.25),
+				    axis.title=element_text(size=6),
+                                    axis.text=element_text(size=5),
+				    strip.placement="outside",
+				    strip.text=element_text(size=6),
+				    strip.background=element_blank())
+update_geom_defaults("point", list(fill="white", shape=21, size=1.1))
+update_geom_defaults("line", list(linewidth=0.25))
 
 coloc_epochs = read_csv("inputs/colocalization_epochs.csv")
 biocytin_cells_yao = (
@@ -34,7 +40,7 @@ cell_stats = (
 p1 <- (
    cell_stats
    %>% ggplot(aes(kv11, duration_mean))
-   + geom_jitter(width=0.1, fill="white", shape=21, size=1)
+   + geom_jitter(width=0.1)
    + ylab("Duration (s)")
    + xlab("Kv1.1")
 )
@@ -64,7 +70,7 @@ p2 <- (
    cell_stats
    %>% left_join(kv11_stats, by="image")
    %>% ggplot(aes(density, duration_mean))
-   + geom_point(fill="white", shape=21, size=1)
+   + geom_point()
    + ylab("Duration (s)")
    + xlab("Kv1.1 density (puncta / 1000 μm³)")
 )
@@ -74,9 +80,13 @@ egg::ggarrange(p1 + my.theme, p2 + my.theme)
 dev.off()
 
 ## Statistics:
-## sweep_stats = (
-##     read_csv("build/sweep_stats.csv")
-##     %>% filter(!is.na(firing_duration))
-##     %>% inner_join(select(fl_all, cell, epoch, condition, bird, sire, epoch_cond))
-## )
+library(lme4)
+library(emmeans)
+
+sweep_stats = (
+    read_csv("build/sweep_stats.csv")
+    %>% filter(!is.na(firing_duration))
+    %>% semi_join(coloc_epochs, by=c("cell", "epoch"))
+    %>% inner_join(kv11_stats, by="cell")
+)
 
