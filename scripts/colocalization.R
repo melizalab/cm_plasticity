@@ -4,8 +4,8 @@ library(ggplot2)
 library(stringr)
 
 my.theme <- egg::theme_article() + theme(legend.position="none",
-                              	         axis.title=element_text(size=8),
-                                         axis.text=element_text(size=6))
+                              	         axis.title=element_text(size=6),
+                                         axis.text=element_text(size=4))
 
 coloc_epochs = read_csv("inputs/colocalization_epochs.csv")
 biocytin_cells_yao = (
@@ -34,7 +34,7 @@ cell_stats = (
 p1 <- (
    cell_stats
    %>% ggplot(aes(kv11, duration_mean))
-   + geom_jitter(width=0.1, fill="white", shape=21, size=2)
+   + geom_jitter(width=0.1, fill="white", shape=21, size=1)
    + ylab("Duration (s)")
    + xlab("Kv1.1")
 )
@@ -42,8 +42,10 @@ p1 <- (
 ## simple stats:
 wilcox.test(duration_mean ~ kv11, cell_stats)
 
-## NOT USED: automated pipeline
+## TODO make this look pretty
 
+## automated pipeline
+section_thickness <- 0.44
 ## combine counts across sections in kv11 ihc data
 kv11_stats = (
      read_csv(
@@ -54,7 +56,7 @@ kv11_stats = (
      ## strip off last part of name (denotes objective power)
      %>% mutate(image=str_replace(image, "_[0-9]+$", ""))
      %>% group_by(image)
-     %>% summarize(puncta=sum(puncta), volume=sum(area))
+     %>% summarize(puncta=sum(puncta), volume=sum(area) * section_thickness)
      %>% mutate(density=puncta/volume * 1000)
 )
 
@@ -62,10 +64,19 @@ p2 <- (
    cell_stats
    %>% left_join(kv11_stats, by="image")
    %>% ggplot(aes(density, duration_mean))
-   + geom_point(fill="white", shape=21, size=2)
+   + geom_point(fill="white", shape=21, size=1)
    + ylab("Duration (s)")
-   + xlab("Kv1.1 density (a.u.)")
+   + xlab("Kv1.1 density (puncta / 1000 μm³)")
 )
 
-## TODO make this look pretty
+pdf("figures/duration_kv11.pdf", width=1.5, height=2.2)
+egg::ggarrange(p1 + my.theme, p2 + my.theme)
+dev.off()
+
+## Statistics:
+## sweep_stats = (
+##     read_csv("build/sweep_stats.csv")
+##     %>% filter(!is.na(firing_duration))
+##     %>% inner_join(select(fl_all, cell, epoch, condition, bird, sire, epoch_cond))
+## )
 

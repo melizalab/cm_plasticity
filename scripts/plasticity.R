@@ -4,9 +4,18 @@ library(tidyr)
 library(dplyr)
 library(ggplot2)
 
-my.theme <- egg::theme_article() + theme(legend.position="none",
-                              	         axis.title=element_text(size=8),
-                                         axis.text=element_text(size=6))
+## can use egg::theme_article() to get a full axis frame
+my.theme <- theme_classic() + theme(legend.position="none",
+                                    axis.line=element_line(linewidth=0.25),
+				    axis.ticks=element_line(linewidth=0.25)
+				    axis.title=element_text(size=6),
+                                    axis.text=element_text(size=5),
+				    strip.placement="outside",
+				    strip.text=element_text(size=6),
+				    strip.background=element_blank())
+update_geom_defaults("point", list(fill="white", shape=21, size=1.1))
+update_geom_defaults("line", list(linewidth=0.25))
+
 plasticity_epochs = (
     read_csv("inputs/plasticity_epochs.csv")
     %>% mutate(cell=str_sub(cell, end=8), condition=factor(condition, levels=c("cr", "noinj", "pr", "bapta")))
@@ -55,10 +64,13 @@ dt_cr = (
 p1.1 <- (
     dt_cr
     %>% ggplot(aes(time, duration))
-    + geom_point(fill="white", shape=21, size=3)
+    + geom_point()
     + ylab("Δ Duration (s)")
     + xlab("Time (s)")
 )
+pdf("figures/cr_duration_time.pdf", width=2.3, height=1.7)
+print(p1.1 + my.theme)
+dev.off()
 
 
 ## All conditions:
@@ -81,43 +93,57 @@ dt_all = (
          Rm=diff(Rm),
          Vm=diff(Vm),
          rheobase=diff(rheobase),
+	 time=diff(time)
 	 )
     %>% inner_join(cell_info, by="cell")
 )
 
-## CR only
-fl_cr = filter(fl_all, condition=="cr")
-dt_cr = filter(dt_all, condition=="cr")
-
-## duration for first and last
+## CR: duration for first and last
 p1.2 <- (
-    ggplot(fl_cr, aes(epoch_cond, duration_mean, group=cell))
+    filter(fl_all, condition=="cr")
+    %>% select(cell, epoch_cond, y=duration_mean)
+    %>% ggplot(aes(epoch_cond, y, group=cell))
     + geom_line()
-    + geom_point(fill="white", shape=21, size=2)
+    + geom_point(size=1)
     + ylab("Duration (s)")
     + xlab("Epoch")
 )
+p1.3 <- p1.2 %+% (filter(fl_all, condition=="cr") %>% select(cell, epoch_cond, y=slope)) + ylab("f-I Slope (Hz/pA)")
+pdf("figures/cr_delta_duration_slope.pdf", width=2.3, height=1.7)
+egg::ggarrange(p1.2 + my.theme, p1.3 + my.theme, nrow=1)
+dev.off()
+
 
 ## change in duration (last - first) - maybe exclude?
-p1.3 <- (
-    ggplot(dt_cr, aes(condition, duration))
-    + geom_boxplot(width=.1, alpha=0.5)
-    + geom_point(fill="white", shape=21, size=2)
-    + ylab("Δ Duration (s)")
-    + xlab("")
-)
+## p <- (
+##     ggplot(dt_cr, aes(condition, duration))
+##     + geom_boxplot(width=.1, alpha=0.5)
+##     + geom_point(fill="white", shape=21, size=2)
+##     + ylab("Δ Duration (s)")
+##     + xlab("")
+## )
 
-## CR: correlate change in duration with other variables
-p1.4 <- (
-   dt_cr
-   %>% pivot_longer(c(slope, Rs, Rm, Vm, rheobase), names_to="measure")
+## PR: duration/slope for first and last
+p2.1 <- p1.2 %+% (filter(fl_all, condition=="pr") %>% select(cell, epoch_cond, y=duration_mean))
+p2.2 <- p1.2 %+% (filter(fl_all, condition=="pr") %>% select(cell, epoch_cond, y=slope))
+pdf("figures/pr_delta_duration_slope.pdf", width=2.3, height=1.4)
+egg::ggarrange(p2.1 + my.theme, p2.2 + my.theme, nrow=1)
+dev.off()
+
+## PR and CR: correlate change in duration with other variables
+p2.3 <- (
+   filter(dt_all, condition %in% c("cr", "pr"))
+   %>% pivot_longer(c(slope, Rm, Vm, rheobase), names_to="measure")
    %>% ggplot(aes(duration, value))
-    + facet_wrap(vars(measure), nrow=1, scales="free", strip.position="left")
-    + geom_point(fill="white", shape=21, size=3)
-    + stat_smooth(method=lm)
-    + ylab("Δ")
+    + facet_wrap(vars(measure), nrow=2, scales="free", strip.position="left")
+    + geom_point(aes(color=condition))
+    + stat_smooth(method=lm, linewidth=0.5)
+    + ylab("")
     + xlab("Δ Duration (s)")
 )
+pdf("figures/crpr_duration_corr.pdf", width=2.75, height=2.3)
+print(p2.3 + my.theme + theme(panel.spacing.x=unit(0, "in")))
+dev.off()
 
 ## PR:
 p1.2 <- (
@@ -168,17 +194,28 @@ p3 <- (
 library(lme4)
 library(emmeans)
 
-## first the basic epoch-level model
-(fm_e <- lmer(duration ~ condition + (1|bird), dt_all))
-
-## Full analysis uses sweeps instead of epochs so that the LMM will do some partial pooling.
+## Some analyses use sweeps instead of epochs so that the LMM will do some partial pooling.
 sweep_stats = (
     read_csv("build/sweep_stats.csv")
     %>% filter(!is.na(firing_duration))
     %>% inner_join(select(fl_all, cell, epoch, condition, bird, sire, epoch_cond))
 )
-(fm_s <- lmer(log10(firing_duration) ~ condition*epoch_cond + (1|cell) + (1|bird), sweep_stats))
 
+## CR only: firing duration
+(fm_cr_d <- lmer(firing_duration ~ epoch_cond + (1 + epoch_cond|cell) + (1|bird), filter(sweep_stats, condition=="cr")))
+## CR only: slope
+(fm_cr_s <- lmer(slope ~ epoch_cond + (1|cell) + (1|bird), filter(fl_all, condition=="cr")))
+
+## PR only: firing duration
+(fm_pr_d <- lmer(firing_duration ~ epoch_cond + (1 + epoch_cond|cell) + (1|bird), filter(sweep_stats, condition=="pr")))
+## PR only: slope
+(fm_pr_s <- lmer(slope ~ epoch_cond + (1|cell) + (1|bird), filter(fl_all, condition=="pr")))
+
+## PR and CR: correlations with duration
+dt_pr_cr <- filter(dt_all, condition %in% c("cr", "pr"))
+d
+
+## All conditions
 ## use emmeans to calculate contrasts
 ## 1. last - first for each condition
 em_delta <- (
