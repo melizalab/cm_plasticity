@@ -55,6 +55,13 @@ sweep_stats = (
     read_csv("build/sweep_stats.csv")
     %>% filter(!is.na(firing_duration))
     %>% inner_join(select(epoch_stats, cell, epoch, condition, bird, sire, epoch_cond))
+    %>% mutate(epoch_cond=relevel(epoch_cond, "pre"))
+    %>% filter(cell!="a2c71415")
 )
 
-(fm_rev <- lmer(firing_duration ~ epoch_cond + (1 + epoch_cond|cell), sweep_stats))
+(fm_rev_dur <- lmer(firing_duration ~ epoch_cond + (1 + epoch_cond|cell), sweep_stats))
+
+(fm_rev_slope <-
+   lmer(slope ~ epoch_cond + (1|cell),
+        mutate(epoch_stats, epoch_cond=relevel(epoch_cond, "pre")) %>% filter(cell!="a2c71415")
+))

@@ -7,7 +7,7 @@ library(ggplot2)
 ## can use egg::theme_article() to get a full axis frame
 my.theme <- theme_classic() + theme(legend.position="none",
                                     axis.line=element_line(linewidth=0.25),
-				    axis.ticks=element_line(linewidth=0.25)
+				    axis.ticks=element_line(linewidth=0.25),
 				    axis.title=element_text(size=6),
                                     axis.text=element_text(size=5),
 				    strip.placement="outside",
@@ -145,53 +145,27 @@ pdf("figures/crpr_duration_corr.pdf", width=2.75, height=2.3)
 print(p2.3 + my.theme + theme(panel.spacing.x=unit(0, "in")))
 dev.off()
 
-## PR:
-p1.2 <- (
-     filter(fl_all, condition=="pr")
-    %>% ggplot(aes(epoch_cond, duration_mean, group=cell))
+
+
+## Compare first and last for Noinj, BAPTA
+p3.1 <- (
+    filter(fl_all, condition %in% c("noinj","bapta"))
+    %>% select(cell, epoch_cond, condition, y=duration_mean)
+    %>% ggplot(aes(epoch_cond, y, group=cell))
+    + facet_wrap(vars(condition), nrow=1)
     + geom_line()
-    + geom_point(fill="white", shape=21, size=2)
+    + geom_point(size=1)
     + ylab("Duration (s)")
     + xlab("Epoch")
 )
+p3.2 <- p3.1 %+% (filter(fl_all, condition %in% c("noinj","bapta")) %>% select(cell, epoch_cond, condition, y=slope)) + ylab("f-I Slope (Hz/pA)")
+pdf("figures/noinj-bapta_delta_duration_slope.pdf", width=2.3, height=2.8)
+egg::ggarrange(p3.1 + my.theme, p3.2 + my.theme, nrow=2)
+dev.off()
 
-
-## Compare first and last for CR, Noinj, BAPTA
-p2 <- (
-    filter(fl_all, condition!="pr")
-    %>% ggplot(aes(epoch_cond, duration_mean, group=cell))
-    + facet_wrap(vars(condition), nrow=1)
-    + geom_line()
-    + geom_point(fill="white", shape=21, size=3)
-    + ylab("Duration (s)")
-    + xlab("Epoch")
-)
-
-
-
-p2 <- (
-    filter(fl_all, condition!="pr")
-    %>% ggplot(aes(epoch_cond, slope, group=cell))
-    + facet_wrap(vars(condition), nrow=1)
-    + geom_line()
-    + geom_point(fill="white", shape=21, size=3)
-    + ylab("f-I Slope (Hz/pA)")
-    + xlab("Epoch")
-)
-
-
-
-p3 <- (
-    ggplot(dt_cr, aes(duration, value))
-    + facet_wrap(vars(measure), nrow=1, scales="free", strip.position="left")
-    + geom_point(fill="white", shape=21, size=3)
-    + stat_smooth(method=lm)
-    + ylab("Δ")
-    + xlab("Δ Duration (s)")
-)
 
 ## Statistics: 
-library(lme4)
+library(lmerTest)
 library(emmeans)
 
 ## Some analyses use sweeps instead of epochs so that the LMM will do some partial pooling.
@@ -215,26 +189,44 @@ sweep_stats = (
 dt_pr_cr <- filter(dt_all, condition %in% c("cr", "pr"))
 d
 
-## All conditions
+## All conditions: duration
+(fm_d <- lmer(firing_duration ~ epoch_cond*condition + (1 + epoch_cond|cell) + (1|bird), sweep_stats))
 ## use emmeans to calculate contrasts
 ## 1. last - first for each condition
-em_delta <- (
+em_d <- (
+    fm_d
+    %>% emmeans(~ epoch_cond*condition)
+    %>% contrast("revpairwise", by="condition")
+)
+ci_d <- bind_cols(confint(em_d, level=0.50, type="response"),
+                  confint(em_d, level=0.90, type="response") %>% select(lower.CL.90=lower.CL, upper.CL.90=upper.CL))
+
+## post-hoc comparisons:
+emmeans(fm_d, ~ epoch_cond*condition) %>% contrast(interaction="revpairwise")
+
+## all conditions: slope
+fm_s <- lmer(slope ~ epoch_cond*condition + (1|cell) + (1|bird), fl_all)
+em_s <- (
     fm_s
     %>% emmeans(~ epoch_cond*condition)
     %>% contrast("revpairwise", by="condition")
 )
-p4 <- (
-    confint(em_delta, level=0.50, type="response")
-    %>% ggplot(aes(condition, ratio, ymin=lower.CL, ymax=upper.CL))
-    + geom_linerange(size=1.5)
-    + geom_linerange(data=confint(em_delta, level=0.90, type="response"))
-    + geom_point(size=2.5, shape=21, fill="white")
-    + geom_hline(yintercept=1.0)
-    + scale_y_continuous("Δ Duration", labels = scales::percent)
+ci_s <- bind_cols(confint(em_s, level=0.50, type="response"),
+                  confint(em_s, level=0.90, type="response") %>% select(lower.CL.90=lower.CL, upper.CL.90=upper.CL))
+emmeans(fm_s, ~ epoch_cond*condition) %>% contrast(interaction="revpairwise")
+
+p4.1 <- (
+    ci_d
+    %>% ggplot(aes(condition, estimate, ymin=lower.CL, ymax=upper.CL))
+    + geom_linerange(linewidth=1.5)
+    + geom_linerange(aes(ymin=lower.CL.90, ymax=upper.CL.90))
+    + geom_point(size=2.5)
+    + geom_hline(yintercept=0.0)
+    + scale_y_continuous("Δ Duration (s)") #, labels = scales::percent)
 )
-pdf("figures/duration_change.pdf", width=6, height=4)
+
+p4.2 <- p4.1 %+% ci_s + scale_y_continuous("Δ Slope (Hz/pA)")
+
+pdf("figures/duration_slope_change.pdf", width=6, height=4)
 print(p4 + my.theme)
 dev.off()
-
-## post-hoc comparisons:
-emmeans(fm_s, ~ epoch_cond*condition) %>% contrast(interaction="revpairwise")
