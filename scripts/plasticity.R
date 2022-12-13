@@ -159,7 +159,7 @@ p3.1 <- (
     + xlab("Epoch")
 )
 p3.2 <- p3.1 %+% (filter(fl_all, condition %in% c("noinj","bapta")) %>% select(cell, epoch_cond, condition, y=slope)) + ylab("f-I Slope (Hz/pA)")
-pdf("figures/noinj-bapta_delta_duration_slope.pdf", width=2.3, height=2.8)
+pdf("figures/noinj-bapta_delta_duration_slope.pdf", width=2.3, height=3.2)
 egg::ggarrange(p3.1 + my.theme, p3.2 + my.theme, nrow=2)
 dev.off()
 
@@ -187,7 +187,7 @@ sweep_stats = (
 
 ## PR and CR: correlations with duration
 dt_pr_cr <- filter(dt_all, condition %in% c("cr", "pr"))
-d
+
 
 ## All conditions: duration
 (fm_d <- lmer(firing_duration ~ epoch_cond*condition + (1 + epoch_cond|cell) + (1|bird), sweep_stats))
@@ -226,6 +226,9 @@ p4.1 <- (
 )
 
 p4.2 <- p4.1 %+% ci_s + scale_y_continuous("Δ Slope (Hz/pA)")
+pdf("figures/duration_slope_summary.pdf", width=2.8, height=2.0)
+egg::ggarrange(p4.1 + my.theme, p4.2 + my.theme, nrow=1)
+dev.off()
 
 pdf("figures/duration_slope_change.pdf", width=6, height=4)
 print(p4 + my.theme)
