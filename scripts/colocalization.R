@@ -32,7 +32,7 @@ cell_stats = (
                   slope_mean=mean(slope, na.rm=T),
 	          spike_width=median(spike_width, na.rm=T),
 	          temperature=median(temperature, na.rm=T))
-      %>% filter(spike_width > 0.9)
+      ##%>% filter(spike_width > 0.9)
       %>% inner_join(biocytin_cells, by="cell")
 )
 
@@ -40,7 +40,7 @@ cell_stats = (
 p1 <- (
    cell_stats
    %>% ggplot(aes(kv11, duration_mean))
-   + geom_jitter(width=0.1)
+   + geom_jitter(height=0, width=0.1)
    + ylab("Duration (s)")
    + xlab("Kv1.1")
 )
@@ -51,8 +51,8 @@ wilcox.test(duration_mean ~ kv11, cell_stats)
 ## TODO make this look pretty
 
 ## automated pipeline
-section_thickness <- 0.44
 ## combine counts across sections in kv11 ihc data
+section_thickness <- 0.44
 kv11_stats = (
      read_csv(
          "inputs/kv11_puncta.csv",

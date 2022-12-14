@@ -141,11 +141,9 @@ p2.3 <- (
     + ylab("")
     + xlab("Δ Duration (s)")
 )
-pdf("figures/crpr_duration_corr.pdf", width=2.75, height=2.3)
+pdf("figures/crpr_duration_corr.pdf", width=2.6, height=2.2)
 print(p2.3 + my.theme + theme(panel.spacing.x=unit(0, "in")))
 dev.off()
-
-
 
 ## Compare first and last for Noinj, BAPTA
 p3.1 <- (
@@ -193,13 +191,13 @@ dt_pr_cr <- filter(dt_all, condition %in% c("cr", "pr"))
 (fm_d <- lmer(firing_duration ~ epoch_cond*condition + (1 + epoch_cond|cell) + (1|bird), sweep_stats))
 ## use emmeans to calculate contrasts
 ## 1. last - first for each condition
-em_d <- (
+(em_d <- (
     fm_d
     %>% emmeans(~ epoch_cond*condition)
     %>% contrast("revpairwise", by="condition")
-)
-ci_d <- bind_cols(confint(em_d, level=0.50, type="response"),
-                  confint(em_d, level=0.90, type="response") %>% select(lower.CL.90=lower.CL, upper.CL.90=upper.CL))
+))
+(ci_d <- bind_cols(confint(em_d, level=0.50, type="response"),
+                  confint(em_d, level=0.90, type="response") %>% select(lower.CL.90=lower.CL, upper.CL.90=upper.CL)))
 
 ## post-hoc comparisons:
 emmeans(fm_d, ~ epoch_cond*condition) %>% contrast(interaction="revpairwise")
