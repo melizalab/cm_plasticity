@@ -84,9 +84,8 @@ library(lme4)
 library(emmeans)
 
 sweep_stats = (
-    read_csv("build/sweep_stats.csv")
-    %>% filter(!is.na(firing_duration))
-    %>% semi_join(coloc_epochs, by=c("cell", "epoch"))
-    %>% inner_join(kv11_stats, by="cell")
+    select(cell_stats, cell, image)
+    %>% left_join(kv11_stats, by="image")
+    %>% left_join(read_csv("build/sweep_stats.csv") %>% filter(!is.na(firing_duration)), by="cell")
 )
 

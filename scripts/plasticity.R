@@ -227,7 +227,3 @@ p4.2 <- p4.1 %+% ci_s + scale_y_continuous("Δ Slope (Hz/pA)")
 pdf("figures/duration_slope_summary.pdf", width=2.8, height=2.0)
 egg::ggarrange(p4.1 + my.theme, p4.2 + my.theme, nrow=1)
 dev.off()
-
-pdf("figures/duration_slope_change.pdf", width=6, height=4)
-print(p4 + my.theme)
-dev.off()
