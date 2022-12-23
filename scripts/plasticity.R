@@ -21,7 +21,7 @@ update_geom_defaults("line", list(linewidth=0.25))
 
 plasticity_epochs = (
     read_csv("inputs/plasticity_epochs.csv")
-    %>% mutate(cell=str_sub(cell, end=8), condition=factor(condition, levels=c("cr", "noinj", "pr", "bapta")))
+    %>% mutate(cell=str_sub(cell, end=8), condition=factor(condition, levels=c("cr", "pr", "noinj", "bapta")))
 )
 cell_info = (
     read_csv("build/cell_info.csv")
@@ -160,7 +160,7 @@ p3.1 <- (
     + xlab("Epoch")
 )
 p3.2 <- p3.1 %+% (filter(fl_all, condition %in% c("noinj","bapta")) %>% select(cell, epoch_cond, condition, y=slope)) + ylab("f-I Slope (Hz/pA)")
-pdf("figures/noinj-bapta_delta_duration_slope.pdf", width=2.3, height=3.2)
+pdf("figures/noinj-bapta_delta_duration_slope.pdf", width=1.9, height=3.4)
 egg::ggarrange(p3.1 + my.theme, p3.2 + my.theme, nrow=2)
 dev.off()
 
@@ -173,16 +173,6 @@ sweep_stats = (
     %>% filter(!is.na(firing_duration))
     %>% inner_join(select(fl_all, cell, epoch, condition, bird, sire, epoch_cond))
 )
-
-## CR only: firing duration
-(fm_cr_d <- lmer(firing_duration ~ epoch_cond + (1 + epoch_cond|cell) + (1|bird), filter(sweep_stats, condition=="cr")))
-## CR only: slope
-(fm_cr_s <- lmer(slope ~ epoch_cond + (1|cell) + (1|bird), filter(fl_all, condition=="cr")))
-
-## PR only: firing duration
-(fm_pr_d <- lmer(firing_duration ~ epoch_cond + (1 + epoch_cond|cell) + (1|bird), filter(sweep_stats, condition=="pr")))
-## PR only: slope
-(fm_pr_s <- lmer(slope ~ epoch_cond + (1|cell) + (1|bird), filter(fl_all, condition=="pr")))
 
 ## PR and CR: correlations with duration
 dt_pr_cr <- filter(dt_all, condition %in% c("cr", "pr"))
@@ -205,6 +195,7 @@ emmeans(fm_d, ~ epoch_cond*condition) %>% contrast(interaction="revpairwise")
 
 ## all conditions: slope
 fm_s <- lmer(slope ~ epoch_cond*condition + (1|cell) + (1|bird), fl_all)
+anova(fm_s)		  
 em_s <- (
     fm_s
     %>% emmeans(~ epoch_cond*condition)
@@ -225,6 +216,6 @@ p4.1 <- (
 )
 
 p4.2 <- p4.1 %+% ci_s + scale_y_continuous("Δ Slope (Hz/pA)")
-pdf("figures/duration_slope_summary.pdf", width=2.8, height=2.0)
+pdf("figures/duration_slope_summary.pdf", width=3.0, height=2.0)
 egg::ggarrange(p4.1 + my.theme, p4.2 + my.theme, nrow=1)
 dev.off()
