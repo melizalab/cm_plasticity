@@ -1,8 +1,11 @@
+### Quantify plasticity in CR, PR, minimal injection and BAPTA-AM
 library(readr)
 library(stringr)
 library(tidyr)
 library(dplyr)
 library(ggplot2)
+library(lmerTest)
+library(emmeans)
 
 ## can use egg::theme_article() to get a full axis frame
 my.theme <- theme_classic() + theme(legend.position="none",
@@ -163,8 +166,6 @@ dev.off()
 
 
 ## Statistics: 
-library(lmerTest)
-library(emmeans)
 
 ## Some analyses use sweeps instead of epochs so that the LMM will do some partial pooling.
 sweep_stats = (

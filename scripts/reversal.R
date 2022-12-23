@@ -4,6 +4,8 @@ library(stringr)
 library(tidyr)
 library(dplyr)
 library(ggplot2)
+library(lmerTest)
+library(emmeans)
 
 ## can use egg::theme_article() to get a full axis frame
 my.theme <- theme_classic() + theme(legend.position="none",
@@ -59,7 +61,7 @@ sweep_stats = (
     %>% filter(cell!="a2c71415")
 )
 
-(fm_rev_dur <- lmer(firing_duration ~ epoch_cond + (1 + epoch_cond|cell), sweep_stats))
+(fm_rev_dur <- lmer(firing_duration ~ epoch_cond + (1|cell), sweep_stats))
 
 (fm_rev_slope <-
    lmer(slope ~ epoch_cond + (1|cell),
