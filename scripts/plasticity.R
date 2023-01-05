@@ -27,10 +27,16 @@ cell_info = (
     read_csv("build/cell_info.csv")
     %>% mutate(bird=str_sub(bird, end=8), sire=str_sub(sire, end=8), dam=str_sub(dam, end=8))
 )
+## drop narrow-spiking cells (note: assumes that spike width remains ~constant from first to last)
 epoch_stats = (
     read_csv("build/epoch_stats.csv")
     %>% inner_join(plasticity_epochs, by=c("cell", "epoch"))
     %>% inner_join(cell_info, by="cell")
+    %>% arrange(cell, epoch)
+    %>% group_by(cell)
+    %>% mutate(epoch_cond=ifelse(row_number()==1, "first", ifelse(row_number()==n(), "last", "mid")))
+    %>% filter(spike_width > 0.9)
+    %>% arrange(cell, epoch)
 )
 
 ## Check for exclusions:
@@ -39,52 +45,43 @@ select(epoch_stats, cell, epoch, Rs, Rm, Vm, delta_Vm) %>% group_by(cell) %>% fi
 select(epoch_stats, cell, epoch, Vm, n_spont) %>% group_by(cell) %>% filter(any(n_spont > 5))
 ## -> Remove bad epochs and cells from plasticity_epochs.csv
 
-## select first and last epochs for each cell and tag them
-## drop narrow-spiking cells (note: assumes that spike width remains ~constant from first to last)
-first_last = (
-    epoch_stats
-    %>% arrange(cell, epoch)
-    %>% group_by(cell)
-    %>% mutate(epoch_cond=ifelse(row_number()==1, "first", ifelse(row_number()==n(), "last", "mid")))
-    %>% filter(epoch_cond %in% c("first", "last"))
-    %>% filter(spike_width > 0.9)
-    %>% arrange(cell, epoch)
-)
-
 ## First, we need to see how long the recording needs to last for plasticity to happen  
-fl_cr = filter(first_last, condition=="cr")
 ## compute deltas
-dt_cr = (
-    fl_cr
+dt_all = (
+    epoch_stats
     %>% group_by(cell)
-    %>% summarize(
-	 condition=first(condition),
-	 duration=diff(duration_mean),
-	 time=diff(time)
-    )
+    %>% mutate(time = time - first(time), delta_duration = duration_mean - first(duration_mean))
 )
 
-p1.1 <- (
-    dt_cr
-    %>% ggplot(aes(time, duration))
+p1.1a <- (
+    filter(dt_all, condition=="cr", epoch_cond=="last")
+    %>% select(x=time, delta_duration)
+    %>% ggplot(aes(x, delta_duration))
     + geom_point()
     + ylab("Δ Duration (s)")
     + xlab("Time (s)")
 )
-pdf("figures/cr_duration_time.pdf", width=2.3, height=1.7)
-print(p1.1 + my.theme)
+p1.1b <- (
+    p1.1a %+%
+    (filter(dt_all, condition=="cr", epoch_cond=="last") %>% select(x=cum_spikes, delta_duration))
+    + xlab("Spikes")
+)
+pdf("figures/cr_duration_time_spikes.pdf", width=2.3, height=1.9)
+egg::ggarrange(p1.1a + my.theme, p1.1b + my.theme, nrow=2)
 dev.off()
-
 
 ## All conditions:
 ## drop neurons where time is less than 400 s (need enough time to see plasticity)
 too_short = (
-    first_last
+    epoch_stats
     %>% group_by(cell)
-    %>% filter(last(time) < 400)
+    %>% filter(epoch_cond=="last", time < 400)
     %>% select(cell, epoch, condition, time)
 )
-fl_all = anti_join(first_last, too_short, by="cell")
+fl_all = (
+    filter(epoch_stats, epoch_cond %in% c("first", "last"))
+    %>% anti_join(too_short, by="cell")
+)
 dt_all = (
     fl_all
     %>% group_by(cell)
@@ -96,6 +93,7 @@ dt_all = (
          Rm=diff(Rm),
          Vm=diff(Vm),
          rheobase=diff(rheobase),
+	 spikes=diff(cum_spikes),
 	 time=diff(time)
 	 )
     %>% inner_join(cell_info, by="cell")

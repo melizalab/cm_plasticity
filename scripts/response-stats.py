@@ -13,7 +13,7 @@ import pandas as pd
 from core import setup_log
 
 log = logging.getLogger()
-__version__ = "20221026"
+__version__ = "20230105"
 
 
 def load_epoch(path):
@@ -64,7 +64,8 @@ def sweep_firing_stats(sweep):
     try:
         step = pd.Interval(*sweep["stimulus.interval"])
         spikes = [e for e in sweep.events if e in step]
-        rate = len(spikes) / step.length
+        n_spikes = len(spikes)
+        rate = n_spikes / step.length
         if len(spikes) == 0:
             duration = np.nan
         elif len(spikes) == 1:
@@ -75,6 +76,7 @@ def sweep_firing_stats(sweep):
             duration = spikes[-1] - spikes[0]
     except TypeError:
         rate = duration = np.nan
+        n_spikes = 0
     # spontaneous spikes
     spont_interval = pd.Interval(*sweep["spont_interval"])
     spont_spikes = [e for e in sweep.events if e in spont_interval]
@@ -89,7 +91,8 @@ def sweep_firing_stats(sweep):
             "temperature": sweep.temperature,
             "spike_width": sweep["first_spike.width"],
             "spike_trough": sweep["first_spike.trough_t"],
-            "n_spont": len(spont_spikes)
+            "n_evoked": n_spikes,
+            "n_spont": len(spont_spikes),
         }
     )
 
@@ -134,14 +137,10 @@ def epoch_firing_stats(sweeps):
             "temperature": sweeps.temperature.mean(),
             "spike_width": sweeps.spike_width.mean(),
             "spike_trough": sweeps.spike_trough.mean(),
+            "n_evoked": sweeps.n_evoked.sum(),
             "n_spont": sweeps.n_spont.sum(),
         }
     )
-
-
-def compare_epochs(cell):
-    """Compare all the epochs within a cell and mark ones that may need to be excluded"""
-    pass
 
 
 def write_results(df, path, name):
@@ -230,10 +229,17 @@ if __name__ == "__main__":
         .apply(lambda x: (x - x.iloc[0]))
         .rename(columns=lambda s: f"delta_{s}")
     )
+    # NB: cumulative sum is the number of spikes before each epoch
+    cum_spikes = (
+        epoch_stats
+        .groupby("cell", group_keys=False)
+        .apply(lambda df: (df["n_spont"] + df["n_evoked"]).shift(1, fill_value=0).cumsum())
+        .rename("cum_spikes")
+    )
 
     # to do: print out the epochs that deviate too much
     write_results(
-        epoch_stats.join([r_dev, v_dev]), args.output_dir / "epoch_stats.csv", "epoch statistics"
+        epoch_stats.join([r_dev, v_dev, cum_spikes]), args.output_dir / "epoch_stats.csv", "epoch statistics"
     )
     write_results(
         cells, args.output_dir / "cell_info.csv", "cell info"
