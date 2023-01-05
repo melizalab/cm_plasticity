@@ -162,6 +162,17 @@ pdf("figures/noinj-bapta_delta_duration_slope.pdf", width=1.9, height=3.4)
 egg::ggarrange(p3.1 + my.theme, p3.2 + my.theme, nrow=2)
 dev.off()
 
+p3.3 <- (
+    filter(dt_all, condition %in% c("noinj", "bapta"))
+    %>% ggplot(aes(spikes, duration, color=condition))
+    + geom_point()
+    + ylab("Δ Duration (s)")
+    + xlab("Spikes")
+)
+pdf("figures/noinj-bapta_delta_duration_spikes.pdf", width=3.4, height=3.4)
+print(p3.3 + my.theme)
+dev.off()
+
 
 ## Statistics: 
 
