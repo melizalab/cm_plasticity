@@ -9,9 +9,11 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from pandarallel import pandarallel
 
 from core import setup_log
 
+pandarallel.initialize(progress_bar=True)
 log = logging.getLogger()
 __version__ = "20230105"
 
@@ -58,6 +60,39 @@ def iv_deviation(sweep_steps):
     """Determine absolute deviation from median (in MADs)"""
     dev = (sweep_steps - sweep_steps.median()).abs()
     return dev / dev.median()
+
+
+def iv_slope_rest(iv_stats, frac=0.7, bin_data=False):
+    """Get dV/dI (input resistance) around I=0. Uses loess regression for local interpolation"""
+    from loess.loess_1d import loess_1d
+    log.debug("  - analyzing I-V slope for %s_%02d", iv_stats.index[0][0], iv_stats.index[0][1])
+    I_min = iv_stats.current.min()
+    I_max = iv_stats.current.max()
+    # loess regression may fail horribly if the data are not binned
+    if bin_data:
+        bins = pd.interval_range(np.floor(I_min), np.ceil(I_max))
+        cuts = pd.cut(iv_stats.current, bins)
+        binned = iv_stats.groupby(cuts).agg("mean").dropna()
+    else:
+        binned = iv_stats
+    # interpolate right around I=0, with slight weight toward depolarized voltages
+    xnew = np.arange(-5, 10, 0.1)
+    try:
+        xout, yout, _ = loess_1d(
+            binned.current.to_numpy(),
+            binned.voltage.to_numpy(),
+            xnew=xnew,
+            degree=1,
+            frac=frac,
+            npoints=None,
+            rotate=False,
+            sigy=None,
+        )
+    except SystemError:
+        log.warning("  - loess failed to converge for %s_%02d", iv_stats.index[0][0], iv_stats.index[0][1])
+        return np.nan
+    smoothed = pd.DataFrame({"current": xout, "voltage": yout})
+    return (smoothed.voltage.diff() / smoothed.current.diff()).mean() * 1000
 
 
 def sweep_firing_stats(sweep):
@@ -194,12 +229,12 @@ if __name__ == "__main__":
         .apply(lambda x: x.total_seconds())
     )
     log.info("- computing I-V functions")
-    iv_stats = sweeps.apply(sweep_iv_stats, axis=1)
+    iv_stats = sweeps.parallel_apply(sweep_iv_stats, axis=1)
     log.info("- checking for bad sweeps (Vm deviance)")
     v_dev = (
         iv_stats["voltage"]
         .groupby(["cell", "epoch"], group_keys=False)
-        .apply(iv_deviation)
+        .parallel_apply(iv_deviation)
     )
     # only look at baseline and hyperpolarization steps
     bad_sweeps = (v_dev[[0, 2, 3, 4]] > args.max_Vm_deviance).any(axis=1)
@@ -209,7 +244,7 @@ if __name__ == "__main__":
     iv_stats = iv_stats.loc[~bad_sweeps].stack("step")
 
     log.info("- computing sweep-level statistics")
-    sweep_stats = sweeps.apply(sweep_firing_stats, axis=1)
+    sweep_stats = sweeps.parallel_apply(sweep_firing_stats, axis=1)
     write_results(iv_stats, args.output_dir / "iv_stats.csv", "I-V steps")
     write_results(sweep_stats, args.output_dir / "sweep_stats.csv", "sweep statistics")
 
@@ -217,6 +252,11 @@ if __name__ == "__main__":
     epoch_stats = (
         sweep_stats.groupby(["cell", "epoch"]).apply(epoch_firing_stats).join(epochs)
     )
+    # iv_slope = (
+    #     iv_stats.groupby(["cell", "epoch"])
+    #     .parallel_apply(iv_slope_rest, bin_data=True)
+    #     .rename("Rm0")
+    # )
     r_dev = (
         epoch_stats[["Rs", "Rm"]]
         .groupby("cell", group_keys=False)
@@ -231,16 +271,17 @@ if __name__ == "__main__":
     )
     # NB: cumulative sum is the number of spikes before each epoch
     cum_spikes = (
-        epoch_stats
-        .groupby("cell", group_keys=False)
-        .apply(lambda df: (df["n_spont"] + df["n_evoked"]).shift(1, fill_value=0).cumsum())
+        epoch_stats.groupby("cell", group_keys=False)
+        .apply(
+            lambda df: (df["n_spont"] + df["n_evoked"]).shift(1, fill_value=0).cumsum()
+        )
         .rename("cum_spikes")
     )
 
     # to do: print out the epochs that deviate too much
     write_results(
-        epoch_stats.join([r_dev, v_dev, cum_spikes]), args.output_dir / "epoch_stats.csv", "epoch statistics"
+        epoch_stats.join([r_dev, v_dev, cum_spikes]),
+        args.output_dir / "epoch_stats.csv",
+        "epoch statistics",
     )
-    write_results(
-        cells, args.output_dir / "cell_info.csv", "cell info"
-    )
+    write_results(cells, args.output_dir / "cell_info.csv", "cell info")
