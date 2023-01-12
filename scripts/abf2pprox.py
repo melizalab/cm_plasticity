@@ -216,6 +216,8 @@ if __name__ == "__main__":
         birb = rq.get(url).json()
         info["metadata"]["sire"] = birb["sire"]
         info["metadata"]["dam"] = birb["dam"]
+        info["metadata"]["sex"] = birb["sex"]
+        info["metadata"]["age"] = birb["age_days"]
     except (KeyError, rq.HTTPError):
         pass
     else:

@@ -134,7 +134,7 @@ dev.off()
 ## PR and CR: correlate change in duration with other variables
 p2.3 <- (
    filter(dt_all, condition %in% c("cr", "pr"))
-   %>% pivot_longer(c(slope, Rm, Vm, rheobase), names_to="measure")
+   %>% pivot_longer(c(slope, Rm, Rm0, Vm, rheobase), names_to="measure")
    %>% ggplot(aes(duration, value))
     + facet_wrap(vars(measure), nrow=2, scales="free", strip.position="left")
     + geom_point(aes(color=condition))

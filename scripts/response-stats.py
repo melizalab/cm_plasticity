@@ -29,6 +29,8 @@ def load_epoch(path):
                 "cell",
                 "epoch",
                 "bird",
+                "age",
+                "sex",
                 "sire",
                 "dam",
                 "timestamp",
@@ -213,7 +215,7 @@ if __name__ == "__main__":
     log.info("- loading %d pprox files", len(args.epochs))
     sweeps = pd.concat([load_epoch(path) for path in args.epochs])
     cells = (
-        sweeps.reset_index()[["cell", "bird", "sire", "dam"]]
+        sweeps.reset_index()[["cell", "bird", "age", "sex", "sire", "dam"]]
         .drop_duplicates()
         .set_index("cell")
     )
