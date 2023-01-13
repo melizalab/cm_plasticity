@@ -102,8 +102,8 @@ dt_all = (
 ## CR: duration for first and last
 p1.2 <- (
     filter(fl_all, condition=="cr")
-    %>% select(cell, epoch_cond, y=duration_mean)
-    %>% ggplot(aes(epoch_cond, y, group=cell))
+    %>% select(cell, epoch_cond, y=duration_mean, sex)
+    %>% ggplot(aes(epoch_cond, y, group=cell, color=sex))
     + geom_line()
     + geom_point(size=1)
     + ylab("Duration (s)")
@@ -180,7 +180,7 @@ dev.off()
 sweep_stats = (
     read_csv("build/sweep_stats.csv")
     %>% filter(!is.na(firing_duration))
-    %>% inner_join(select(fl_all, cell, epoch, condition, bird, sire, epoch_cond))
+    %>% inner_join(select(fl_all, cell, epoch, condition, bird, sex, sire, epoch_cond))
 )
 
 ## PR and CR: correlations with duration

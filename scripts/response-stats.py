@@ -134,31 +134,36 @@ def sweep_firing_stats(sweep):
     )
 
 
+def epoch_firing_slope(sweeps):
+    """ Computes Δf/ΔI for all sweeps above rheobase """
+    (idx,) = (sweeps.firing_rate > 0).to_numpy().nonzero()
+    # if there are no spikes, slope is undefined for all sweeps
+    if len(idx) == 0:
+        return pd.Series(np.nan, index=sweeps.index)
+    # otherwise, slope is only undefined below the rheobase
+    slope = sweeps.firing_rate.diff() / sweeps.current.diff()
+    slope.iloc[:idx[0]] = np.nan
+    return slope
+
+
 def epoch_firing_stats(sweeps):
     """Compute firing stats by epoch"""
-    # find sweeps with spikes
-    (idx,) = (sweeps.firing_rate > 0).to_numpy().nonzero()
-    # if there are no spikes, rheobase is undefined and slope is zero
-    if len(idx) == 0:
+    # epoch_firing_slope already determines the rheobase, so we just need to
+    # find the first valid index
+    try:
+        fr_slope = sweeps.firing_rate_slope
+        slope = fr_slope.mean()
+        idx = fr_slope.index.get_loc(fr_slope.first_valid_index())
+        # this will be nan if idx is 0, which corresponds to spikes when zero
+        # current was injected
+        I_0 = sweeps.current.iloc[idx-1:idx+1].mean()
+    except KeyError:
+        # if there are no spikes, rheobase is undefined and slope is zero
         I_0 = np.nan
         slope = 0
-        n_spike_sweeps = 0
-    # rheobase is also undefined if there are spikes with zero current injected
-    elif idx[0] == 0:
-        I_0 = np.nan
-        slope = np.mean(np.diff(sweeps.firing_rate) / np.diff(sweeps.current))
-        n_spike_sweeps = 0
-    else:
-        df = sweeps.iloc[idx[0] - 1 :]
-        n_spike_sweeps = df.shape[0]
-        # rheobase: midpoint between current levels that evoke firing
-        I_0 = (df.current[1] + df.current[0]) / 2
-        # f-I slope: average of the slopes (simpler and more stable than linear regression)
-        slope = (df.firing_rate.diff() / df.current.diff()).mean()
     return pd.Series(
         {
             "n_sweeps": sweeps.shape[0],
-            "n_spike_sweeps": n_spike_sweeps,
             "duration_max": sweeps.firing_duration.max(),
             "duration_mean": sweeps.firing_duration.mean(),
             "duration_sd": sweeps.firing_duration.std(),
@@ -247,6 +252,13 @@ if __name__ == "__main__":
 
     log.info("- computing sweep-level statistics")
     sweep_stats = sweeps.parallel_apply(sweep_firing_stats, axis=1)
+    sweep_slope_stats = (
+        sweep_stats
+        .groupby(["cell", "epoch"], group_keys=False)
+        .apply(epoch_firing_slope)
+        .rename("firing_rate_slope")
+    )
+    sweep_stats = sweep_stats.join(sweep_slope_stats)
     write_results(iv_stats, args.output_dir / "iv_stats.csv", "I-V steps")
     write_results(sweep_stats, args.output_dir / "sweep_stats.csv", "sweep statistics")
 
@@ -254,11 +266,6 @@ if __name__ == "__main__":
     epoch_stats = (
         sweep_stats.groupby(["cell", "epoch"]).apply(epoch_firing_stats).join(epochs)
     )
-    # iv_slope = (
-    #     iv_stats.groupby(["cell", "epoch"])
-    #     .parallel_apply(iv_slope_rest, bin_data=True)
-    #     .rename("Rm0")
-    # )
     r_dev = (
         epoch_stats[["Rs", "Rm"]]
         .groupby("cell", group_keys=False)
