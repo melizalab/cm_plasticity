@@ -70,6 +70,19 @@ pdf("figures/cr_duration_time_spikes.pdf", width=2.3, height=1.9)
 egg::ggarrange(p1.1a + my.theme, p1.1b + my.theme, nrow=2)
 dev.off()
 
+p2.1a <- (
+    p1.1a %+%
+    (filter(dt_all, condition=="pr", epoch_cond=="last") %>% select(x=cum_spikes, delta_duration))
+)
+p2.1b <- (
+    p1.1a %+%
+    (filter(dt_all, condition=="pr", epoch_cond=="last") %>% select(x=cum_spikes, delta_duration))
+    + xlab("Spikes")
+)
+pdf("figures/pr_duration_time_spikes.pdf", width=2.3, height=1.9)
+egg::ggarrange(p2.1a + my.theme, p2.1b + my.theme, nrow=2)
+dev.off()
+
 ## All conditions:
 ## drop neurons where time is less than 400 s (need enough time to see plasticity)
 too_short = (
@@ -103,7 +116,7 @@ dt_all = (
 p1.2 <- (
     filter(fl_all, condition=="cr")
     %>% select(cell, epoch_cond, y=duration_mean, sex)
-    %>% ggplot(aes(epoch_cond, y, group=cell, color=sex))
+    %>% ggplot(aes(epoch_cond, y, group=cell))
     + geom_line()
     + geom_point(size=1)
     + ylab("Duration (s)")
@@ -125,14 +138,14 @@ dev.off()
 ## )
 
 ## PR: duration/slope for first and last
-p2.1 <- p1.2 %+% (filter(fl_all, condition=="pr") %>% select(cell, epoch_cond, y=duration_mean))
-p2.2 <- p1.2 %+% (filter(fl_all, condition=="pr") %>% select(cell, epoch_cond, y=slope))
-pdf("figures/pr_delta_duration_slope.pdf", width=2.3, height=1.4)
-egg::ggarrange(p2.1 + my.theme, p2.2 + my.theme, nrow=1)
+p2.2 <- p1.2 %+% (filter(fl_all, condition=="pr") %>% select(cell, epoch_cond, y=duration_mean))
+p2.3 <- p1.2 %+% (filter(fl_all, condition=="pr") %>% select(cell, epoch_cond, y=slope))
+pdf("figures/pr_delta_duration_slope.pdf", width=2.3, height=1.7)
+egg::ggarrange(p2.2 + my.theme, p2.3 + my.theme, nrow=1)
 dev.off()
 
 ## PR and CR: correlate change in duration with other variables
-p2.3 <- (
+p2.4 <- (
    filter(dt_all, condition %in% c("cr", "pr"))
    %>% pivot_longer(c(slope, Rm, Rm0, Vm, rheobase), names_to="measure")
    %>% ggplot(aes(duration, value))
@@ -143,7 +156,7 @@ p2.3 <- (
     + xlab("Δ Duration (s)")
 )
 pdf("figures/crpr_duration_corr.pdf", width=2.6, height=2.2)
-print(p2.3 + my.theme + theme(panel.spacing.x=unit(0, "in")))
+print(p2.4 + my.theme + theme(panel.spacing.x=unit(0, "in")))
 dev.off()
 
 ## Compare first and last for Noinj, BAPTA
