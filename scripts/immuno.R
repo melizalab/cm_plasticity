@@ -80,3 +80,41 @@ plt <- (
 pdf("figures/cr_pr_kv11.pdf", width=1.25, height=1.4)
 print(plt + my.theme)
 dev.off()
+
+## EM
+em_counts <- inner_join(read_csv("inputs/em_counts.csv"), birds, by="bird")
+
+## too few replicates to do mixed effects modeling, so we're just going to use
+## naive nonparametric stats. The standard procedure for Erisir lab is to do a
+## kruskal-wallace with bird as the factor and then pool within condition if
+## there is no significant post-hoc difference among the birds within condition.
+## I'm not going to try to replicate that here.
+
+p2.1 <- (
+    select(em_counts, bird, condition, y=pm.density)
+    %>% ggplot(aes(condition, y=y))
+    + geom_boxplot(width=0.15, position=position_nudge(0.2))
+    + geom_jitter(aes(color=bird), width=0.05)
+    + scale_y_continuous("Linear density (clusters/μm)")
+)
+p2.2 <- (
+     p2.1
+     %+% select(em_counts, bird, condition, y=nm.density)
+)
+
+p2.3 <- (
+     p2.1
+     %+% select(em_counts, bird, condition, y=er.count)
+     + scale_y_continuous("Clusters")
+)
+p2.4 <- (
+     p2.1
+     %+% select(em_counts, bird, condition, y=total.count)
+     + scale_y_continuous("Clusters")
+)
+pdf("figures/em_density_counts.pdf", width=2.9, height=3.0)
+egg::ggarrange(
+     p2.1 + my.theme, p2.2 + my.theme,
+     p2.3 + my.theme, p2.4 + my.theme,
+     nrow=2)
+dev.off()
