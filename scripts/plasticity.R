@@ -180,9 +180,9 @@ sweep_stats = (
     %>% inner_join(select(fl_all, cell, epoch, condition, bird, sex, sire, epoch_cond))
 )
 
-## PR and CR: correlations with duration
-dt_pr_cr <- filter(dt_all, condition %in% c("cr", "pr"))
-
+## CR: effect of sex
+(fm_ds <- lmer(firing_duration ~ epoch_cond*sex + (1 + epoch_cond|cell) + (1|bird), filter(sweep_stats, condition=="cr")))
+anova(fm_ds)
 
 ## All conditions: duration
 (fm_d <- lmer(firing_duration ~ epoch_cond*condition + (1 + epoch_cond|cell) + (1|bird), sweep_stats))
