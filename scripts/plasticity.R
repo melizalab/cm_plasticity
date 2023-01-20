@@ -144,21 +144,6 @@ pdf("figures/pr_delta_duration_slope.pdf", width=2.3, height=1.7)
 egg::ggarrange(p2.2 + my.theme, p2.3 + my.theme, nrow=1)
 dev.off()
 
-## PR and CR: correlate change in duration with other variables
-p2.4 <- (
-   filter(dt_all, condition %in% c("cr", "pr"))
-   %>% pivot_longer(c(slope, Rm, Rm0, Vm, rheobase), names_to="measure")
-   %>% ggplot(aes(duration, value))
-    + facet_wrap(vars(measure), nrow=2, scales="free", strip.position="left")
-    + geom_point(aes(color=condition))
-    + stat_smooth(method=lm, linewidth=0.5)
-    + ylab("")
-    + xlab("Δ Duration (s)")
-)
-pdf("figures/crpr_duration_corr.pdf", width=2.6, height=2.2)
-print(p2.4 + my.theme + theme(panel.spacing.x=unit(0, "in")))
-dev.off()
-
 ## Compare first and last for Noinj, BAPTA
 p3.1 <- (
     filter(fl_all, condition %in% c("noinj","bapta"))
@@ -185,7 +170,6 @@ p3.3 <- (
 pdf("figures/noinj-bapta_delta_duration_spikes.pdf", width=3.4, height=3.4)
 print(p3.3 + my.theme)
 dev.off()
-
 
 ## Statistics: 
 
@@ -227,7 +211,7 @@ ci_s <- bind_cols(confint(em_s, level=0.50, type="response"),
                   confint(em_s, level=0.90, type="response") %>% select(lower.CL.90=lower.CL, upper.CL.90=upper.CL))
 emmeans(fm_s, ~ epoch_cond*condition) %>% contrast(interaction="revpairwise")
 
-p4.1 <- (
+p7.1 <- (
     ci_d
     %>% ggplot(aes(condition, estimate, ymin=lower.CL, ymax=upper.CL))
     + geom_linerange(linewidth=1.5)
@@ -237,7 +221,40 @@ p4.1 <- (
     + scale_y_continuous("Δ Duration (s)") #, labels = scales::percent)
 )
 
-p4.2 <- p4.1 %+% ci_s + scale_y_continuous("Δ Slope (Hz/pA)")
-pdf("figures/duration_slope_summary.pdf", width=3.0, height=2.0)
-egg::ggarrange(p4.1 + my.theme, p4.2 + my.theme, nrow=1)
+p7.2 <- p7.1 %+% ci_s + scale_y_continuous("Δ Slope (Hz/pA)")
+pdf("figures/duration_slope_summary.pdf", width=1.8, height=2.8)
+egg::ggarrange(p7.1 + my.theme, p7.2 + my.theme, nrow=2)
 dev.off()
+
+## these are not significant
+fm_r <- lmer(Rm ~ epoch_cond*condition + (1|cell) + (1|bird), fl_all)
+anova(fm_r)
+fm_v <- lmer(Vm ~ epoch_cond*condition + (1|cell) + (1|bird), fl_all)
+anova(fm_v)
+(em_v <- (
+    fm_v
+    %>% emmeans(~ epoch_cond*condition)
+    %>% contrast("revpairwise", by="condition")
+))
+(ci_v <- bind_cols(confint(em_v, level=0.50, type="response"),
+                  confint(em_v, level=0.90, type="response") %>% select(lower.CL.90=lower.CL, upper.CL.90=upper.CL)))
+
+## all conditions: correlate change in duration with other variables
+p7.3 <- (
+   dt_all 
+   %>% pivot_longer(c(slope, Rm, Vm, rheobase), names_to="measure")
+   %>% ggplot(aes(duration, value))
+    + facet_wrap(vars(measure), nrow=2, scales="free", strip.position="left")
+    + geom_point(aes(color=condition), fill=NA, size=1.0)
+    + stat_smooth(method=lm, linewidth=0.5)
+    + ylab("")
+    + xlab("Δ Duration (s)")
+)
+pdf("figures/all_duration_corr.pdf", width=2.9, height=2.4)
+print(p7.3 + my.theme + theme(panel.spacing.x=unit(0, "in")))
+dev.off()
+
+cor.test(~ duration + slope, dt_all)
+cor.test(~ duration + rheobase, dt_all)
+cor.test(~ duration + Rm, dt_all)
+cor.test(~ duration + Vm, dt_all)
