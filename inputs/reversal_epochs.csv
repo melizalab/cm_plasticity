@@ -176,7 +176,7 @@ f0f05bca,4,dtx,mid
 f0f05bca,5,dtx,mid
 f0f05bca,6,dtx,pre
 f0f05bca,9,dtx,post
-f0f05bca,8,dtx,postmore
+f0f05bca,8,dtx,post
 261b05fc,4,dtx,first
 261b05fc,5,dtx,mid
 261b05fc,6,dtx,mid
@@ -184,8 +184,8 @@ f0f05bca,8,dtx,postmore
 261b05fc,8,dtx,mid
 261b05fc,9,dtx,pre
 261b05fc,12,dtx,post
-261b05fc,13,dtx,postmore
-261b05fc,14,dtx,postmore
+261b05fc,13,dtx,post
+261b05fc,14,dtx,post
 fabdca58,5,dtx,first
 fabdca58,6,dtx,mid
 fabdca58,7,dtx,mid
@@ -199,7 +199,7 @@ fabdca58,14,dtx,mid
 fabdca58,15,dtx,mid
 fabdca58,16,dtx,pre
 fabdca58,18,dtx,post
-fabdca58,19,dtx,postmore
+fabdca58,19,dtx,post
 d6382a20,2,dtx,first
 d6382a20,3,dtx,mid
 d6382a20,4,dtx,mid
@@ -210,5 +210,5 @@ f01b6121,4,dtx,mid
 f01b6121,5,dtx,mid
 f01b6121,6,dtx,pre
 f01b6121,8,dtx,post
-f01b6121,9,dtx,postmore             
+f01b6121,9,dtx,post             
 
