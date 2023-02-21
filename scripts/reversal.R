@@ -26,8 +26,6 @@ reversal_epochs = (
     read_csv("inputs/reversal_epochs.csv")
     %>% group_by(cell, epoch_cond)
     %>% filter(row_number()==n())
-    ## drop dtx for now
-    %>% filter(condition=="4ap")
 )
 cell_info = (
     read_csv("build/cell_info.csv")
@@ -52,13 +50,13 @@ select(epoch_stats, cell, epoch, Vm, n_spont) %>% group_by(cell) %>% filter(any(
 ## Compare first, pre, post
 p4.1 <- (
     select(epoch_stats, cell, condition, epoch_cond, y=duration_mean)
-    %>% ggplot(aes(epoch_cond, y, group=cell))
+    %>% ggplot(aes(epoch_cond, y, group=cell, color=condition))
     + geom_line()
     + geom_point()
     + ylab("Duration (s)")
     + xlab("Epoch")
 )
-p4.2 <- p4.1 %+% select(epoch_stats, epoch_cond, y=slope) + ylab("f-I Slope (Hz/pA)")
+p4.2 <- p4.1 %+% select(epoch_stats, cell, condition, epoch_cond, y=slope) + ylab("f-I Slope (Hz/pA)")
 pdf("figures/4ap_reversal.pdf", width=2.75, height=1.7)
 egg::ggarrange(p4.1 + my.theme, p4.2 + my.theme, nrow=1)
 dev.off()
@@ -74,7 +72,8 @@ sweep_stats = (
 )
 
 (fm_rev_dur_4ap <- lmer(firing_duration ~ epoch_cond + (1|cell), filter(sweep_stats, condition=="4ap")))
-## (fm_rev_dur_dtx <- lmer(firing_duration ~ epoch_cond + (1|cell), filter(sweep_stats, condition=="dtx")))
+(fm_rev_dur_dtx <- lmer(firing_duration ~ epoch_cond + (1|cell), filter(sweep_stats, condition=="dtx")))
+(fm_rev_dur <- lmer(firing_duration ~ epoch_cond*condition + (1|cell), sweep_stats))
 
 (fm_rev_slope <-
    lmer(slope ~ epoch_cond + (1|cell),
