@@ -20,9 +20,15 @@ update_geom_defaults("point", list(fill="white", shape=21, size=1.1))
 update_geom_defaults("line", list(linewidth=0.25))
 
 ## epoch types are tagged in the control file
-## select first, last (pre), and post epochs for each cell
+## select first, last (pre), and post epochs for each cell. Only use last (good) post epoch
 ## There are no narrow-spiking cells, but we only look at initially tonic neurons
-reversal_epochs = read_csv("inputs/reversal_epochs.csv")
+reversal_epochs = (
+    read_csv("inputs/reversal_epochs.csv")
+    %>% group_by(cell, epoch_cond)
+    %>% filter(row_number()==n())
+    ## drop dtx for now
+    %>% filter(condition=="4ap")
+)
 cell_info = (
     read_csv("build/cell_info.csv")
     %>% mutate(bird=str_sub(bird, end=8), sire=str_sub(sire, end=8), dam=str_sub(dam, end=8))
@@ -37,9 +43,15 @@ epoch_stats = (
     %>% inner_join(cell_info, by="cell")
 )
 
+## check for bad epochs
+select(epoch_stats, cell, epoch, epoch_cond, Vm, delta_Rs, delta_Rm) %>% group_by(cell) %>% filter(any(abs(delta_Rs) > 0.3))
+select(epoch_stats, cell, epoch, Rs, Rm, Vm, delta_Vm) %>% group_by(cell) %>% filter(any(delta_Vm > 10))
+select(epoch_stats, cell, epoch, Vm, n_spont) %>% group_by(cell) %>% filter(any(n_spont > 5))
+
+
 ## Compare first, pre, post
 p4.1 <- (
-    select(epoch_stats, cell, epoch_cond, y=duration_mean)
+    select(epoch_stats, cell, condition, epoch_cond, y=duration_mean)
     %>% ggplot(aes(epoch_cond, y, group=cell))
     + geom_line()
     + geom_point()
@@ -61,7 +73,8 @@ sweep_stats = (
     %>% filter(cell!="a2c71415")
 )
 
-(fm_rev_dur <- lmer(firing_duration ~ epoch_cond + (1|cell), sweep_stats))
+(fm_rev_dur_4ap <- lmer(firing_duration ~ epoch_cond + (1|cell), filter(sweep_stats, condition=="4ap")))
+## (fm_rev_dur_dtx <- lmer(firing_duration ~ epoch_cond + (1|cell), filter(sweep_stats, condition=="dtx")))
 
 (fm_rev_slope <-
    lmer(slope ~ epoch_cond + (1|cell),
