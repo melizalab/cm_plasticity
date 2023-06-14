@@ -124,6 +124,11 @@ if __name__ == "__main__":
         help="directory to store output file (default `%(default)s`)",
     )
     parser.add_argument(
+        "--skip-completed",
+        action="store_true",
+        help="if set, will only run the analysis if the target file is not there",
+    )
+    parser.add_argument(
         "--rise-ms",
         type=with_units(pq.ms),
         default=1.0,
@@ -196,12 +201,17 @@ if __name__ == "__main__":
         log.error("  - error: there is no epoch %d", args.epoch)
         parser.exit(-1)
 
+    short_name = args.neuron.split("-")[0]
+    output_file = args.output_dir / f"{short_name}_{args.epoch:02}.pprox"
+    if args.skip_completed and output_file.exists():
+        log.info("- output file %s already exists, skipping", output_file)
+        parser.exit()
+
     log.info("- reading %s", abf)
     ifp = AxonIO(abf)
     block = ifp.read_block(lazy=True)
     protocols = ifp.read_protocol()
 
-    short_name = args.neuron.split("-")[0]
     pprox = {
         "$schema": "https://meliza.org/spec:2/pprox.json#",
         "cell": short_name,
@@ -216,6 +226,8 @@ if __name__ == "__main__":
         birb = rq.get(url).json()
         info["metadata"]["sire"] = birb["sire"]
         info["metadata"]["dam"] = birb["dam"]
+        info["metadata"]["sex"] = birb["sex"]
+        info["metadata"]["age"] = birb["age_days"]
     except (KeyError, rq.HTTPError):
         pass
     else:

@@ -15,7 +15,7 @@ tickparams = {
     "direction": "out",
 }
 grparams = {
-    "font": {"size": 8},
+    "font": {"size": 6},
     "axes": {"linewidth": 0.5, "unicode_minus": False},
     "lines": {"linewidth": 0.5},
     "xtick": tickparams,

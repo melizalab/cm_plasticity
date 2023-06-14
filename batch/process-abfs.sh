@@ -7,4 +7,4 @@ echo "clearing ${OUTDIR}"
 rm -f ${OUTDIR}/*.pprox
 
 grep -v "^#" $1 | \
-    poetry run parallel --skip-first-line --colsep ' ' python scripts/abf2pprox.py -O ${OUTDIR} {}
+    poetry run parallel --skip-first-line --colsep ' ' python scripts/abf2pprox.py -O ${OUTDIR} ${OPTIONS} {}
