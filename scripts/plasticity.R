@@ -184,6 +184,11 @@ sweep_stats = (
 (fm_ds <- lmer(firing_duration ~ epoch_cond*sex + (1 + epoch_cond|cell) + (1|bird), filter(sweep_stats, condition=="cr")))
 anova(fm_ds)
 
+## CR vs PR: Vm
+(fm_vm <- lmer(Vm ~ condition + (1|cell) + (1|bird), filter(sweep_stats, epoch_cond=="first")))
+(fm_rm <- lmer(Rm ~ condition + (1|cell) + (1|bird), filter(sweep_stats, epoch_cond=="first")))
+
+
 ## All conditions: duration
 (fm_d <- lmer(firing_duration ~ epoch_cond*condition + (1 + epoch_cond|cell) + (1|bird), sweep_stats))
 ## use emmeans to calculate contrasts
