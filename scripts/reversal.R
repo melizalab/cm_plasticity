@@ -24,6 +24,7 @@ update_geom_defaults("line", list(linewidth=0.25))
 ## There are no narrow-spiking cells, but we only look at initially tonic neurons
 reversal_epochs = (
     read_csv("inputs/reversal_epochs.csv")
+    %>% filter(condition %in% c("4ap", "dtx"))
     %>% group_by(cell, epoch_cond)
     %>% filter(row_number()==n())
 )
@@ -37,7 +38,8 @@ epoch_stats = (
     %>% filter(epoch_cond %in% c("first", "pre", "post"))
     %>% mutate(epoch_cond=factor(epoch_cond, levels=c("first", "pre", "post")))
     %>% group_by(cell)
-    %>% filter(first(duration_mean) > 1.0, spike_width > 0.9)
+    %>% filter(spike_width > 0.9)
+    %>% filter(first(duration_mean) > 0.5)
     %>% inner_join(cell_info, by="cell")
 )
 
@@ -67,7 +69,7 @@ sweep_stats = (
     read_csv("build/sweep_stats.csv")
     %>% filter(!is.na(firing_duration))
     %>% inner_join(select(epoch_stats, cell, epoch, condition, bird, sire, epoch_cond))
-    %>% mutate(epoch_cond=relevel(epoch_cond, "pre"))
+    %>% mutate(epoch_cond=relevel(epoch_cond, "pre"), condition=factor(condition))
     %>% filter(cell!="a2c71415")
 )
 
