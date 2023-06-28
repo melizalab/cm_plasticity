@@ -21,7 +21,7 @@ update_geom_defaults("line", list(linewidth=0.25))
 
 plasticity_epochs = (
     read_csv("inputs/plasticity_epochs.csv")
-    %>% mutate(cell=str_sub(cell, end=8), condition=factor(condition, levels=c("cr", "pr", "noinj", "bapta")))
+    %>% mutate(cell=str_sub(cell, end=8), condition=factor(condition, levels=c("cr", "pr", "noinj", "bapta-am", "k4-bapta")))
 )
 cell_info = (
     read_csv("build/cell_info.csv")
@@ -144,9 +144,9 @@ pdf("figures/pr_delta_duration_slope.pdf", width=2.3, height=1.7)
 egg::ggarrange(p2.2 + my.theme, p2.3 + my.theme, nrow=1)
 dev.off()
 
-## Compare first and last for Noinj, BAPTA
+## Compare first and last for Noinj, BAPTA-AM. K4-BAPTA not included b/c the K+ internal concentration was probably too high.
 p3.1 <- (
-    filter(fl_all, condition %in% c("noinj","bapta"))
+    filter(fl_all, condition %in% c("noinj","bapta-am"))
     %>% select(cell, epoch_cond, condition, y=duration_mean)
     %>% ggplot(aes(epoch_cond, y, group=cell))
     + facet_wrap(vars(condition), nrow=1)
@@ -155,13 +155,17 @@ p3.1 <- (
     + ylab("Duration (s)")
     + xlab("Epoch")
 )
-p3.2 <- p3.1 %+% (filter(fl_all, condition %in% c("noinj","bapta")) %>% select(cell, epoch_cond, condition, y=slope)) + ylab("f-I Slope (Hz/pA)")
+p3.2 <- (
+    p3.1 %+% (filter(fl_all, condition %in% c("noinj","bapta-am"))
+    %>% select(cell, epoch_cond, condition, y=slope))
+    + ylab("f-I Slope (Hz/pA)")
+)
 pdf("figures/noinj-bapta_delta_duration_slope.pdf", width=1.9, height=3.4)
 egg::ggarrange(p3.1 + my.theme, p3.2 + my.theme, nrow=2)
 dev.off()
 
 p3.3 <- (
-    filter(dt_all, condition %in% c("noinj", "bapta"))
+    filter(dt_all, condition %in% c("noinj", "bapta-am"))
     %>% ggplot(aes(spikes, duration, color=condition))
     + geom_point()
     + ylab("Δ Duration (s)")
