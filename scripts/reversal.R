@@ -76,10 +76,10 @@ sweep_stats = (
 (fm_rev_dur_4ap <- lmer(firing_duration ~ epoch_cond + (1|cell), filter(sweep_stats, condition=="4ap")))
 (fm_rev_dur_dtx <- lmer(firing_duration ~ epoch_cond + (1|cell), filter(sweep_stats, condition=="dtx")))
 (fm_rev_dur <- lmer(firing_duration ~ epoch_cond*condition + (1|cell), sweep_stats))
-(em_dur <- fm_rev_dur %>% emmeans(~ epoch_cond*condition) %>% contrasts("revpairwise", by="condition"))
+(em_dur <- fm_rev_dur %>% emmeans(~ epoch_cond*condition) %>% contrast("revpairwise", by="condition"))
 
 
 (fm_rev_slope <-
-   lmer(slope ~ epoch_cond + (1|cell),
+   lmer(slope ~ epoch_cond*condition + (1|cell),
         mutate(epoch_stats, epoch_cond=relevel(epoch_cond, "pre")) %>% filter(cell!="a2c71415")
 ))
