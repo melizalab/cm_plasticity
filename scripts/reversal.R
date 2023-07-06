@@ -70,13 +70,14 @@ sweep_stats = (
     %>% filter(!is.na(firing_duration))
     %>% inner_join(select(epoch_stats, cell, epoch, condition, bird, sire, epoch_cond))
     %>% mutate(epoch_cond=relevel(epoch_cond, "pre"), condition=factor(condition))
-    %>% filter(cell!="a2c71415")
 )
 
 (fm_rev_dur_4ap <- lmer(firing_duration ~ epoch_cond + (1|cell), filter(sweep_stats, condition=="4ap")))
 (fm_rev_dur_dtx <- lmer(firing_duration ~ epoch_cond + (1|cell), filter(sweep_stats, condition=="dtx")))
 (fm_rev_dur <- lmer(firing_duration ~ epoch_cond*condition + (1|cell), sweep_stats))
 (em_dur <- fm_rev_dur %>% emmeans(~ epoch_cond*condition) %>% contrast("revpairwise", by="condition"))
+## compare post - pre between drugs:
+(em_dur_int <- fm_rev_dur %>% emmeans(~ epoch_cond*condition) %>% contrast(interaction="revpairwise"))
 
 
 (fm_rev_slope <-

@@ -164,6 +164,26 @@ pdf("figures/noinj-bapta_delta_duration_slope.pdf", width=1.9, height=3.4)
 egg::ggarrange(p3.1 + my.theme, p3.2 + my.theme, nrow=2)
 dev.off()
 
+## this is for a response to a reviewer comment
+p3.1.k4 <- (
+    filter(fl_all, condition=="k4-bapta")
+    %>% select(cell, epoch_cond, condition, y=duration_mean)
+    %>% ggplot(aes(epoch_cond, y, group=cell))
+    + geom_line()
+    + geom_point(size=1)
+    + ylab("Duration (s)")
+    + xlab("Epoch")
+)
+p3.2.k4 <- (
+    p3.1.k4 %+% (filter(fl_all, condition=="k4-bapta")
+    %>% select(cell, epoch_cond, condition, y=slope))
+    + ylab("f-I Slope (Hz/pA)")
+    + ylim(0, 0.4)
+)
+pdf("figures/noinj-k4bapta_delta_duration_slope.pdf", width=2.2, height=1.9)
+egg::ggarrange(p3.1.k4 + my.theme, p3.2.k4 + my.theme, nrow=1)
+dev.off()
+
 p3.3 <- (
     filter(dt_all, condition %in% c("noinj", "bapta-am"))
     %>% ggplot(aes(spikes, duration, color=condition))
@@ -182,6 +202,7 @@ sweep_stats = (
     read_csv("build/sweep_stats.csv")
     %>% filter(!is.na(firing_duration))
     %>% inner_join(select(fl_all, cell, epoch, condition, bird, sex, sire, epoch_cond))
+    %>% filter(condition!="k4-bapta")
 )
 
 ## CR: effect of sex
@@ -191,6 +212,8 @@ anova(fm_ds)
 ## CR vs PR: Vm
 (fm_vm <- lmer(Vm ~ condition + (1|cell) + (1|bird), filter(sweep_stats, epoch_cond=="first")))
 (fm_rm <- lmer(Rm ~ condition + (1|cell) + (1|bird), filter(sweep_stats, epoch_cond=="first")))
+## compare K4-BAPTA to all other CR-based conditions:
+## (fm_vm_bapta <- lmer(Vm ~ condition + (1|cell) + (1|bird), filter(sweep_stats, epoch_cond=="first", condition!="pr") %>% mutate(condition=fct_collapse(condition, k4=c("k4-bapta"), normal=c("cr", "noinj", "bapta-am"))))
 
 
 ## All conditions: duration
