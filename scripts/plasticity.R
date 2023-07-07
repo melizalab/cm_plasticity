@@ -72,7 +72,7 @@ dev.off()
 
 p2.1a <- (
     p1.1a %+%
-    (filter(dt_all, condition=="pr", epoch_cond=="last") %>% select(x=cum_spikes, delta_duration))
+    (filter(dt_all, condition=="pr", epoch_cond=="last") %>% select(x=time, delta_duration))
 )
 p2.1b <- (
     p1.1a %+%
@@ -126,6 +126,21 @@ p1.3 <- p1.2 %+% (filter(fl_all, condition=="cr") %>% select(cell, epoch_cond, y
 pdf("figures/cr_delta_duration_slope.pdf", width=2.3, height=1.7)
 egg::ggarrange(p1.2 + my.theme, p1.3 + my.theme, nrow=1)
 dev.off()
+
+## boxplot for summary - only in this figure because of the large number of points
+p1.2s <- (
+    filter(fl_all, condition=="cr")
+    %>% select(cell, epoch_cond, y=duration_mean, sex)
+    %>% ggplot(aes(epoch_cond, y, group=cell))
+    + geom_boxplot(mapping=aes(group=epoch_cond), width=0.15)
+    + ylab("Duration (s)")
+    + xlab("Epoch")
+)
+p1.3s <- p1.2s %+% (filter(fl_all, condition=="cr") %>% select(cell, epoch_cond, y=slope)) + ylab("f-I Slope (Hz/pA)")
+pdf("figures/cr_delta_duration_slope_summary.pdf", width=2.3, height=1.7)
+egg::ggarrange(p1.2s + box_summary + my.theme, p1.3s + box_summary + my.theme, nrow=1)
+dev.off()
+
 
 
 ## change in duration (last - first) - maybe exclude?
