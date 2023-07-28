@@ -16,8 +16,7 @@ python -m pip install -r requirements.txt
 
 ## Get the data
 
-The first step in the analysis extracts information about current injections and spike times from the raw intracellular recording data, which was generated in Axon Binary Format. The output of this step can be downloaded from [figshare](https://dx.doi/10.6084/m9.figshare.23799951) as follows:
-
+The first step in the analysis extracts information about current injections and spike times from the raw intracellular recording data, which was generated in Axon Binary Format. The output of this step can be downloaded from [figshare](https://dx.doi/10.6084/m9.figshare.23799951) as a zip archive [here](https://figshare.com/ndownloader/files/41745645). Unpack the zip file, making sure that the files go into a `build` directory under this directory.
 
 All of the other data and metadata for the analysis can be found in the `inputs` subdirectory:
 
