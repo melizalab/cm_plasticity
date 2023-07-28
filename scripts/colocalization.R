@@ -14,12 +14,8 @@ update_geom_defaults("point", list(fill="white", shape=21, size=1.1))
 update_geom_defaults("line", list(linewidth=0.25))
 
 coloc_epochs = read_csv("inputs/colocalization_epochs.csv")
-biocytin_cells_yao = (
-     read_csv("inputs/biocytin_cells.csv")
-     ## %>% filter(!is.na(cell), !is.na(kv11))
-)
 biocytin_cells = (
-     read_csv("inputs/biocytin_cells_dan.csv")
+     read_csv("inputs/biocytin_cells.csv")
      %>% filter(!is.na(cell), !is.na(kv11))
 )
 epoch_stats = read_csv("build/epoch_stats.csv") %>% semi_join(coloc_epochs, by=c("cell", "epoch"))

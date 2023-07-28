@@ -1,13 +1,7 @@
 
 # cm_plasticity
 
-Authors: Yao Lu, Dan Meliza
-Status: ongoing
-Related projects: cm_devel, cm_physiology
-
-This project looks at how experience affects intrinsic membrane properties in CM. Some of the analyses, particularly the methods used to calculate phasicness, are derived from Chen and Meliza 2018 (cm_physiology) and Chen and Meliza 2020 (cm_devel), but there has been a substantial reorganization and simplification of the analysis pipeline.
-
-The purpose of this file is to identify directories, file, and scripts, as well as instructions on the analysis workflow.
+This repository contains the analysis code used in Lu et al, "Rapid, activity-dependent intrinsic plasticity in the developing zebra finch auditory cortex". 
 
 ## Setup
 
@@ -17,44 +11,29 @@ Create a virtual environment and install dependencies:
 python3 -m venv venv
 source venv/bin/activate
 python -m pip install --upgrade pip setuptools wheel
-```
-
-If your goal is to reproduce the last good analysis, you should install dependencies from the `requirements.txt` file.
-
-``` shell
 python -m pip install -r requirements.txt
 ```
 
-If you're doing development, you should instead install the most recent versions of all the dependencies:
+## Get the data
 
-``` shell
-python -m pip install -e .
-```
+The first step in the analysis extracts information about current injections and spike times from the raw intracellular recording data, which was generated in Axon Binary Format. The output of this step can be downloaded from [figshare](https://dx.doi/10.6084/m9.figshare.23799951) as follows:
 
-If you want to use Jupyter Lab, you'll need to install that as well:
 
-``` shell
-python -m pip install jupyterlab==3.4.3
-```
+All of the other data and metadata for the analysis can be found in the `inputs` subdirectory:
 
-## Running the code
+- `immuno_counts.csv`: counts of immunopositive neurons in confocal images of CM sections from PR and CR animals
+- `em_counts.csv`: counts of immunopositive clusters in electron microscopy images of CM sections from PR and CR animals
+- `biocytin_cells.csv`: manual classification of biocytin- and Kv1.1-labeled cells as Kv1.1-positive/negative
+- `kv11_puncta.csv`: automated (CellProfiler) counts of Kv1.1 puncta in biocytin-labeled neurons
+- `plasticity_epochs.csv`: metadata for recording epochs examining plasticity under various conditions
+- `reversal_epochs.csv`: metadata for recording epochs examining pharamcological reversal of plasticity
 
-You'll always need to activate your venv (`source venv/bin/activate`) before running any scripts or the jupyter lab server.
+## Analysis
 
-See the [lab wiki](https://gracula.psyc.virginia.edu/wiki/Computing/RemotePythonGuide/) for instructions on how to run a persistent jupyter lab server for your project.
-
-## Workflow
-
-1. Deposit data to neurobank archive. The data type needs to be `intracellular-abfdir`, and you **must** ensure that the uuid of the bird is stored as metadata. Example: `nbank deposit -k experimenter=anc4kj -k bird=a44b322f-d582-4b69-87c7-7de4a7945478 -k name=20180709_1_2 -A -d intracellular-abfdir /home/data/intracellular/ 20180709_1_2`
-2. Add cells to `inputs/cells_new.tbl`.
-3. Scan the the recordings for current step epochs: `batch/scan-cells.sh < inputs/cells_new.tbl > inputs/spkstep_epochs_new.tbl`
-4. Process the recordings to generate pprox files: `batch/process-abfs.sh < inputs/spkstep_epochs_new.tbl`
-5. Plot the recordings (this will plot every pprox in the `build` directory): `batch/plot-epochs.sh`
-6. Remove any obviously bad epochs from `inputs/spkstep_epochs_new.tbl`
-7. Add the epochs to `inputs/plasticity_epochs.csv`, `inputs/reversal_epochs.csv`, or `inputs/colocalization_epochs.csv` depending on which experiment you ran.
-8. Move the new cells from `inputs/cells_new.tbl` to `inputs/cells.tbl` and the new epochs from `inputs/spkstep_epochs_new.tbl` to `inputs/spkstep_epochs.tbl`. 
-9. Run `batch/process-abfs.sh < inputs/spkstep_epochs.tbl` to process all of your epochs
-10. Run `scripts/response-stats.py --output-dir build build/*.pprox`
-10. Check the updated control files (`.tbl` and `.csv` files in the `inputs` directory) into version control.
-11. Delete `inputs/cells_new.tbl` and `inputs/spkstep_epochs_new.tbl` to clear the decks for the next time.
+1. On our local cluster, we ran `batch/process-abfs.sh < inputs/spkstep_epochs.tbl` to extract spike times and other metadata from the raw ABF files and store them in pprox files. Skip this step if you're using the pprox files from figshare.
+2. Run `venv/bin/python scripts/response-stats.py --output-dir build build/*.pprox` to collate data from all the pprox files.
+3. `scripts/immuno.R` has the analysis code for the immunohistochemistry (Fig 1)
+4. `scripts/colocalization.R` has the analysis code comparing Kv1.1 expression to intrinsic dynamics (Fig 2)
+5. `scripts/plasticity.R` quantifies plasticity in CR, PR, minimal injection, and BAPTA-AM conditions (Figs 3, 4, 6, 7)
+6. `scripts/reversal.R` tests whether 4-AP and/or alpha-dendrotoxin reverse intrinsic plasticity
 
