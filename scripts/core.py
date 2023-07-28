@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 # -*- mode: python -*-
-from typing import Iterable, Optional, Tuple
 import logging
+from functools import singledispatch
+from typing import Iterable, Optional, Tuple
+
 import numpy as np
 import quantities as pq
-from functools import singledispatch
 
 kOhm = pq.UnitQuantity("kiloohm", pq.ohm * 1e3, symbol="kΩ")
 MOhm = pq.UnitQuantity("megaohm", pq.ohm * 1e6, symbol="MΩ")
@@ -21,6 +22,7 @@ _units = {
     "temperature": "C",
     "capacitance": pFarad,
 }
+
 
 def setup_log(log, debug=False):
     ch = logging.StreamHandler()

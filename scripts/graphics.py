@@ -59,14 +59,14 @@ class AnchoredScaleBar(AnchoredOffsetbox):
         - sep : separation between labels and bars in points.
         - **kwargs : additional arguments passed to base class constructor
         """
-        from matplotlib.patches import Rectangle
         from matplotlib.offsetbox import (
             AuxTransformBox,
-            VPacker,
+            DrawingArea,
             HPacker,
             TextArea,
-            DrawingArea,
+            VPacker,
         )
+        from matplotlib.patches import Rectangle
 
         bars = AuxTransformBox(transform)
         if sizex:

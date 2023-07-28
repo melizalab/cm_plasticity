@@ -5,8 +5,9 @@
 import datetime
 import logging
 from pathlib import Path
-from neo import AxonIO
+
 import nbank as nb
+from neo import AxonIO
 
 from core import _units, setup_log
 

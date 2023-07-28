@@ -4,17 +4,17 @@
 """ Plot an intracellular epoch for inspection or figure generation """
 
 import datetime
-import logging
 import json
+import logging
 from pathlib import Path
 
-import numpy as np
 import matplotlib.pyplot as plt
-from neo import AxonIO
 import nbank as nb
+import numpy as np
+from neo import AxonIO
 
-from core import setup_log, junction_potential, _units
-from graphics import add_scalebar, hide_axes, adjust_raster_ticks, offset_traces
+from core import _units, junction_potential, setup_log
+from graphics import add_scalebar, adjust_raster_ticks, hide_axes, offset_traces
 
 log = logging.getLogger("plot-epoch")
 __version__ = "20221006"
@@ -31,7 +31,9 @@ if __name__ == "__main__":
     )
     parser.add_argument("--width", "-W", help="plot width", type=float, default=6)
     parser.add_argument("--height", "-H", help="plot height", type=float, default=8)
-    parser.add_argument("--output", "-O", type=Path, help="filename or directory to save plot")
+    parser.add_argument(
+        "--output", "-O", type=Path, help="filename or directory to save plot"
+    )
     parser.add_argument("--combine", help="combine voltage plots", action="store_true")
     parser.add_argument("--xlim", "-x", help="set xlim", type=float, nargs=2)
     parser.add_argument(
@@ -96,9 +98,8 @@ if __name__ == "__main__":
         sampling_period = segment.analogsignals[0].sampling_period.rescale("ms")
         # we can be fairly confident the signals are okay because this was
         # processed with abf2pprox
-        V = (
-            (segment.analogsignals[0].load() - junction_potential)
-            .rescale(_units["voltage"])
+        V = (segment.analogsignals[0].load() - junction_potential).rescale(
+            _units["voltage"]
         )
         I = (
             segment.analogsignals[1]
@@ -113,7 +114,7 @@ if __name__ == "__main__":
         i_ax.plot(t, I)
 
         spikes = np.asarray(pprox["pprox"][sweep_idx]["events"]) * 1000
-        s_ax.plot(spikes, [sweep_idx] * len(spikes), '|')
+        s_ax.plot(spikes, [sweep_idx] * len(spikes), "|")
 
     title = "{cell}_{epoch}".format(**pprox)
     fig.text(0.5, 0.95, title, ha="center")
@@ -125,23 +126,23 @@ if __name__ == "__main__":
     if not args.combine:
         offset_traces(v_ax, annotate=True)
         add_scalebar(
-                v_ax,
-                barcolor="black",
-                barwidth=0.5,
-                sizey=args.vscale,
-                labely="{} {}".format(args.vscale, _units["voltage"].symbol),
-                sizex=args.xscale,
-                labelx="{} {}".format(args.xscale, "ms"),
-            )
+            v_ax,
+            barcolor="black",
+            barwidth=0.5,
+            sizey=args.vscale,
+            labely="{} {}".format(args.vscale, _units["voltage"].symbol),
+            sizex=args.xscale,
+            labelx="{} {}".format(args.xscale, "ms"),
+        )
         add_scalebar(
-                i_ax,
-                barcolor="black",
-                barwidth=0.5,
-                sizey=args.iscale,
-                labely="{} {}".format(args.iscale, _units["current"].symbol),
-                sizex=args.xscale,
-                labelx="{} {}".format(args.xscale, "ms"),
-            )
+            i_ax,
+            barcolor="black",
+            barwidth=0.5,
+            sizey=args.iscale,
+            labely="{} {}".format(args.iscale, _units["current"].symbol),
+            sizex=args.xscale,
+            labelx="{} {}".format(args.xscale, "ms"),
+        )
     else:
         v_ax.set_ylim(args.ylim)
         v_ax.xaxis.set_visible(False)

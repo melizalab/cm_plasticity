@@ -1,7 +1,7 @@
 
 # cm_plasticity
 
-This repository contains the analysis code used in Lu et al, "Rapid, activity-dependent intrinsic plasticity in the developing zebra finch auditory cortex". 
+This repository contains the analysis code used in Lu et al, "Rapid, activity-dependent intrinsic plasticity in the developing zebra finch auditory cortex". The manuscript is currently under review but is available as a [preprint](https://doi.org/10.1101/2023.02.07.527481) on bioRxiv.
 
 ## Setup
 
@@ -16,7 +16,7 @@ python -m pip install -r requirements.txt
 
 ## Get the data
 
-The first step in the analysis extracts information about current injections and spike times from the raw intracellular recording data, which was generated in Axon Binary Format. The output of this step can be downloaded from [figshare](https://dx.doi/10.6084/m9.figshare.23799951) as a zip archive [here](https://figshare.com/ndownloader/files/41745645). Unpack the zip file, making sure that the files go into a `build` directory under this directory.
+The first step in the analysis extracts information about current injections and spike times from the raw intracellular recording data, which was generated in Axon Binary Format. Once the paper is published, the output of this step can be downloaded from [figshare](https://dx.doi.org/10.6084/m9.figshare.23799951) as a zip archive [here](https://figshare.com/ndownloader/files/41745645). Unpack the zip file, making sure that the files go into a `build` directory under this directory.
 
 All of the other data and metadata for the analysis can be found in the `inputs` subdirectory:
 

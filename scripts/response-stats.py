@@ -3,8 +3,8 @@
 # -*- mode: python -*-
 """Compute electrophysiology stats from epoch pprox files """
 import datetime
-import logging
 import json
+import logging
 from pathlib import Path
 
 import numpy as np
@@ -67,7 +67,12 @@ def iv_deviation(sweep_steps):
 def iv_slope_rest(iv_stats, frac=0.7, bin_data=False):
     """Get dV/dI (input resistance) around I=0. Uses loess regression for local interpolation"""
     from loess.loess_1d import loess_1d
-    log.debug("  - analyzing I-V slope for %s_%02d", iv_stats.index[0][0], iv_stats.index[0][1])
+
+    log.debug(
+        "  - analyzing I-V slope for %s_%02d",
+        iv_stats.index[0][0],
+        iv_stats.index[0][1],
+    )
     I_min = iv_stats.current.min()
     I_max = iv_stats.current.max()
     # loess regression may fail horribly if the data are not binned
@@ -91,7 +96,11 @@ def iv_slope_rest(iv_stats, frac=0.7, bin_data=False):
             sigy=None,
         )
     except SystemError:
-        log.warning("  - loess failed to converge for %s_%02d", iv_stats.index[0][0], iv_stats.index[0][1])
+        log.warning(
+            "  - loess failed to converge for %s_%02d",
+            iv_stats.index[0][0],
+            iv_stats.index[0][1],
+        )
         return np.nan
     smoothed = pd.DataFrame({"current": xout, "voltage": yout})
     return (smoothed.voltage.diff() / smoothed.current.diff()).mean() * 1000
@@ -135,14 +144,14 @@ def sweep_firing_stats(sweep):
 
 
 def epoch_firing_slope(sweeps):
-    """ Computes Δf/ΔI for all sweeps above rheobase """
+    """Computes Δf/ΔI for all sweeps above rheobase"""
     (idx,) = (sweeps.firing_rate > 0).to_numpy().nonzero()
     # if there are no spikes, slope is undefined for all sweeps
     if len(idx) == 0:
         return pd.Series(np.nan, index=sweeps.index)
     # otherwise, slope is only undefined below the rheobase
     slope = sweeps.firing_rate.diff() / sweeps.current.diff()
-    slope.iloc[:idx[0]] = np.nan
+    slope.iloc[: idx[0]] = np.nan
     return slope
 
 
@@ -156,7 +165,7 @@ def epoch_firing_stats(sweeps):
         idx = fr_slope.index.get_loc(fr_slope.first_valid_index())
         # this will be nan if idx is 0, which corresponds to spikes when zero
         # current was injected
-        I_0 = sweeps.current.iloc[idx-1:idx+1].mean()
+        I_0 = sweeps.current.iloc[idx - 1 : idx + 1].mean()
     except KeyError:
         # if there are no spikes, rheobase is undefined and slope is zero
         I_0 = np.nan
@@ -253,8 +262,7 @@ if __name__ == "__main__":
     log.info("- computing sweep-level statistics")
     sweep_stats = sweeps.parallel_apply(sweep_firing_stats, axis=1)
     sweep_slope_stats = (
-        sweep_stats
-        .groupby(["cell", "epoch"], group_keys=False)
+        sweep_stats.groupby(["cell", "epoch"], group_keys=False)
         .apply(epoch_firing_slope)
         .rename("firing_rate_slope")
     )

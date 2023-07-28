@@ -14,27 +14,27 @@ user has to point it to the ABF channel that contains the command protocol using
 
 """
 import datetime
-import logging
 import json
+import logging
 from collections import defaultdict
 from pathlib import Path
 
-import numpy as np
-from neo import AxonIO
 import nbank as nb
-import requests as rq
+import numpy as np
 import quantities as pq
 import quickspikes.tools as qst
+import requests as rq
+from neo import AxonIO
 from quickspikes.intracellular import SpikeFinder, spike_shape
 
 from core import (
-    with_units,
-    first_index,
-    setup_log,
-    json_serializable,
     Interval,
-    junction_potential,
     _units,
+    first_index,
+    json_serializable,
+    junction_potential,
+    setup_log,
+    with_units,
 )
 
 birddb_url = "https://gracula.psyc.virginia.edu/birds/api/animals/"
