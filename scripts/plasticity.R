@@ -138,7 +138,7 @@ p1.2s <- (
 )
 p1.3s <- p1.2s %+% (filter(fl_all, condition=="cr") %>% select(cell, epoch_cond, y=slope)) + ylab("f-I Slope (Hz/pA)")
 pdf("figures/cr_delta_duration_slope_summary.pdf", width=2.3, height=1.7)
-egg::ggarrange(p1.2s + box_summary + my.theme, p1.3s + box_summary + my.theme, nrow=1)
+egg::ggarrange(p1.2s + my.theme, p1.3s + my.theme, nrow=1)
 dev.off()
 
 

@@ -5,6 +5,8 @@ This repository contains the analysis code used in Lu et al, "Rapid, activity-de
 
 ## Setup
 
+You will need Python 3.9-3.11 and R 4.2.1 or later.
+
 Create a virtual environment and install dependencies:
 
 ``` shell
@@ -16,16 +18,18 @@ python -m pip install -r requirements.txt
 
 ## Get the data
 
-The first step in the analysis extracts information about current injections and spike times from the raw intracellular recording data, which was generated in Axon Binary Format. Once the paper is published, the output of this step can be downloaded from [figshare](https://dx.doi.org/10.6084/m9.figshare.23799951) as a zip archive [here](https://figshare.com/ndownloader/files/41745645). Unpack the zip file, making sure that the files go into a `build` directory under this directory.
+The first step in the analysis extracts information about current injections and spike times from the raw intracellular recording data, which was generated in Axon Binary Format. Once the paper is published, the output of this step can be downloaded from [figshare](https://dx.doi.org/10.6084/m9.figshare.23799951) as a zip archive [here](https://figshare.com/ndownloader/files/41745645). Unpack the zip file, making sure that the files go into a `build` subdirectory under the top level of the repository.
 
 All of the other data and metadata for the analysis can be found in the `inputs` subdirectory:
 
-- `immuno_counts.csv`: counts of immunopositive neurons in confocal images of CM sections from PR and CR animals
-- `em_counts.csv`: counts of immunopositive clusters in electron microscopy images of CM sections from PR and CR animals
-- `biocytin_cells.csv`: manual classification of biocytin- and Kv1.1-labeled cells as Kv1.1-positive/negative
-- `kv11_puncta.csv`: automated (CellProfiler) counts of Kv1.1 puncta in biocytin-labeled neurons
-- `plasticity_epochs.csv`: metadata for recording epochs examining plasticity under various conditions
-- `reversal_epochs.csv`: metadata for recording epochs examining pharamcological reversal of plasticity
+- `immuno_counts.csv`: counts of immunopositive neurons in confocal images of CM sections (blinded)
+- `em_counts.csv`: counts of immunopositive clusters in electron microscopy images of CM sections (blinded)
+- `immuno_birds.csv`: information to unblind rearing conditions for fluorescence and EM data
+- `biocytin_cells.csv`: manual classification of biocytin- and Kv1.1-labeled cells as Kv1.1-positive/negative (blinded)
+- `kv11_puncta.csv`: automated (CellProfiler) counts of Kv1.1 puncta in biocytin-labeled neurons (blinded)
+- `colocalization_epochs.csv`: metadata for neurons/epochs examining Kv1.1 expression in biocytin-labeled cells
+- `plasticity_epochs.csv`: metadata for neurons/epochs examining plasticity under various conditions
+- `reversal_epochs.csv`: metadata for neurons/epochs examining pharamcological reversal of plasticity
 
 ## Analysis
 
