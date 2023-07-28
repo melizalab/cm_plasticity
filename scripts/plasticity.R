@@ -9,8 +9,8 @@ library(emmeans)
 
 ## can use egg::theme_article() to get a full axis frame
 my.theme <- theme_classic() + theme(legend.position="none",
-                                    axis.line=element_line(linewidth=0.25),
-				    axis.ticks=element_line(linewidth=0.25),
+                                    axis.line=element_line(size=0.25),
+				    axis.ticks=element_line(size=0.25),
 				    axis.title=element_text(size=6),
                                     axis.text=element_text(size=5),
 				    strip.placement="outside",
